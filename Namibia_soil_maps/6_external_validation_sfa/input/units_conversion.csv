@@ -1,0 +1,28 @@
+Soil_property,Reference__Nam_maps_soil_property,Nam_maps_unity,S4A_sp,S4A_unity,S4A_factor_to_reference,iSDA_sp,iSDA_unity,iSDA_factor_to_reference,Soil_grids_sp,Soil_grids_unity,Soil_grids_mapped_unity,Soil_grids_mapped_unity_factor_to_reference
+Bulk density,BD,kg/dm3,NULL,NULL,NULL,db_od,(kg/m3)/10,(y/100),BDOD,kg/dm3,cg/cm3,/100
+Base Saturation,BS,pct,BaseSat,pct,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+Calcium,Ca,mg/kg,Ca,cmol(c)/kg,*200,log.ca_mehlich3,log(ppm),expm1( y / 10 ),NULL,NULL,NULL,NULL
+Cation exchange capacity,CEC,cmol(c)/kg,CEC,cmol(c)/kg,1,NULL,NULL,NULL,CEC,cmol(c)/kg,mmol(c)/kg,/10
+Clay,Clay,pct,Clay,pct,1,clay_tot,pct,1,clay,pct,g/kg,/10
+Electrical conductivity EL25,EC_EL25,uScm,EC,mS/m***,*10,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+Electrical conductivity ELCO,EC_ELCO,uScm,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+Potassium,K,mg/kg,K,cmol(c)/kg,*390,log.k_mehlich3,log(ppm),expm1( y / 10 ),NULL,NULL,NULL,NULL
+Magnesium,Mg,mg/kg,Mg,cmol(c)/kg,*122,log.mg_mehlich3,log(ppm),expm1( y / 10 ),NULL,NULL,NULL,NULL
+Sodium,Na,mg/kg,Na,cmol(c)/kg,*230,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+Nitrogen,N,mg/kg,totN,g/kg***,*1000,log.n_tot,log(g/kg),(expm1( y / 100 ))*1000,N,g/kg,cg/kg,*10
+Organic carbon,OC,pct,orgC,g/kg***,/10,log.oc,log(g/kg),(expm1( y / 10 ))/10,Organic carbon concentration,g/kg,dg/kg,/100
+pH (water),pHwater,NULL,pH.H2O,NULL,1,ph_h2o,pH*10,/10,pH (water),NULL,pH*10,/10
+Phosphorus,P,mg/kg,P,mg/kg,1,log.p_mehlich3,log(ppm),expm1( y / 10 ),NULL,NULL,NULL,NULL
+Sand,Sand,pct,Sa,pct,1,sand_tot,pct,1,sand,pct,g/kg,/10
+Silt,Silt,pct,Si,pct,1,silt_tot,pct,1,silt,pct,g/kg,/10
+,,,https://www.soils4africa-h2020.eu/serverspecific/soils4africa/images/Documents/GuidanceonLaboratoryAnalysis.pdf,,,https://zenodo.org/search?page=1&size=20&q=isdasoil,,,https://soil.copernicus.org/articles/7/217/2021/soil-7-217-2021.html,,,
+,,,"Table 1a, page 9",,,https://www.nature.com/articles/s41598-021-85639-y,,,,,,
+,,,,,mS/m to uS/cm,https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube,,,,,,
+,,,,,https://www.translatorscafe.com/unit-converter/en-US/electric-conductivity/10-13/millisiemens/meter-microsiemens/centimeter/,,,ppm = mg/kg,,,,
+,,,,,"1 millisiemens/meter [mS/m] = 10 microsiemens/centimeter [μS/cm, uS/cm]",,,g/kg to mg/kg multiply by 1000,,,,
+,,,,,cmol(c)/kg to mg/kg,,,,,,,
+,,,,,https://downloads.backpaddock.com.au/SoilMate_Info_Library/SoilMate_NutriFacts/MEASURING_EXCHANGEABLE_CATIONS_CAM02.pdf,,,,,,,
+,,,,***,,,,,,,,
+,,,,"EC: mS/m to uScm, conversion: *10, had to do *100",,,,,,,,
+,,,,"N: g/kg to mg/kg, conversion: *1000 had to do *10000",,,,,,,,
+,,,,"OC: g/kg to %, conversion: /10 had to do /1 (left as it was)",,,,,,,,

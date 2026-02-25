@@ -1,0 +1,14 @@
+Nam GEE: 
+"../../3_final_maps/input/COG_150_m_boot_avg_map_uncert_OCpct_0_30_cm_numb_of_boots_30_export_gdrive.tif"
+
+Soil grids:
+sg_url="https://files.isric.org/soilgrids/latest/data/"
+soc_url <- paste0(sg_url,'soc/soc_0-5cm_mean.vrt')
+
+ISDA:
+soc_url <- "https://isdasoil.s3.amazonaws.com/soil_data/carbon_total/carbon_total.tif"
+
+Soil grids and ISDA use
+terra::rast(soc_url, vsi= T) 
+
+where: vsicurl: allows on-the-fly reading without download of the entire file. Source: https://gdal.org/en/stable/user/virtual_file_systems.html#vsicurl-http-https-ftp-files-random-access 
