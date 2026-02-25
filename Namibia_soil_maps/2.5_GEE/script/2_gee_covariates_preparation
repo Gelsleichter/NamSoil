@@ -1,0 +1,859 @@
+////////////////////////////////////////////////////////////////////////////////
+/* 
+Covariates preparation for Namibia 
+Authors: Yuri Gelsleichter, Marina Coetzee
+Jun 2025 - Jan 2026
+*/
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+/* 
+CONFIGURATION: Update this with your Earth Engine user ID before running
+To store as Legacy assets use the local-part of you email acocunt, for <john.doe@gmail.com>: 
+var user_ID = 'john.doe';  (For example); and for Cloud assest, use the project name 
+Note: this is quite a heavy process, if your browser freeze, just wait and it will keep going
+*/
+var user_ID = 'YOUR_USER_ID';  // ← Change this once
+////////////////////////////////////////////////////////////////////////////////
+
+
+print('Start scrip');
+
+////////////////////////////////////////////////////////////////////////////////
+// Clip images are unecessary and should be avoided, or done at end of script, references: 
+// https://developers.google.com/earth-engine/guides/best_practices?hl=en#if-you-dont-need-to-clip,-dont-use-clip
+// https://courses.spatialthoughts.com/end-to-end-gee.html (item 07)
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+/// Copernicus DEM from GEE ImageCollection :: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_DEM_GLO30 //// 
+////////////////////////////////////////////////////////////////////////////////
+// Does not perform the terrain derivations // var dem_ic = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM');
+
+////////////////////////////////////////////////////////////////////////////////////
+/// bbox, area to clip the rasterrs 
+////////////////////////////////////////////////////////////////////////////////////
+// Study area of country shapefile 
+var bbox = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/namibia_shp_buff_2km"); // imported shapefile
+
+// Test area to check covariates
+// var bbox_test_area = ee.Geometry.Rectangle(
+//   [[17.5, -19.5],[17.8, -19.8]], null, false);
+
+// var bbox_test_area = ee.Geometry.Polygon(
+//                        [[[17.38, -19.60],
+//                          [17.38, -19.70],
+//                          [17.48, -19.70],
+//                          [17.48, -19.60]]], null, false);
+
+var bbox_test_area = ee.Geometry.Polygon(
+                      [[[14.311, -21.143],
+                        [14.311, -21.429],
+                        [14.649, -21.429],
+                        [14.649, -21.143]]], null, false);
+
+// var bbox_test_area = ee.Geometry.Polygon(
+//                       [[[14.679, -21.093],
+//                         [14.679, -21.108],
+//                         [14.694, -21.108],
+//                         [14.694, -21.093]]], null, false);
+
+////////////////////////////////////////////////////////////////////////////////
+/// NASADEM: NASA NASADEM Digital Elevation 30m :: https://developers.google.com/earth-engine/datasets/catalog/NASA_NASADEM_HGT_001
+////////////////////////////////////////////////////////////////////////////////
+var dem = ee.Image('NASA/NASADEM_HGT/001').clipToCollection(bbox).select('elevation').rename('dem');
+
+// Get projection, the default projection is WGS84 with 1-degree scale 
+var dem_crs = dem.projection();
+// Check projection 
+print('DEM crs', dem_crs);
+
+// Get scale from DEM (30.922080775909325 m) 
+// var dem_scale = dem.projection().nominalScale();
+// print('DEM resolution (original)', dem_scale); 
+// var output_scale = 90;
+var output_scale = 5000;      // Temporary coarse resolution to optimize storage space, set desired resolution
+
+// Define output target scale (meters)
+
+// Create Mosaic (could be a median also, across all versions/years)
+//// var dem = dem.mosaic().rename('dem'); // Only needed with copernicus dem 
+
+/* // Use TGEE instead
+// Calculate slope_gee. Units are degrees, range is [0,90).
+var slope_gee = ee.Terrain.slope(dem).rename('slope_gee');
+
+// Calculate aspect_gee. Units are degrees where 0=N, 90=E, 180=S, 270=W.
+var aspect_gee = ee.Terrain.aspect(dem).rename('aspect_gee');
+
+// Calculate Hillshade
+// var hillshade = ee.Terrain.hillshade(dem).rename('hillshade');
+
+// Hillshade image from a DEM :: https://gis.stackexchange.com/questions/445241/hillshade-image-blend-that-is-not-washed-out-earth-engine
+var hillshade = ee.Terrain.hillshade({
+  // Divide the DEM by 2 to flatten it a little, otherwise the terrain effect is
+  // too exagerated - play around with how much you flatten it.
+  // input: dem.divide(2),
+  input: dem, 
+  azimuth: 270,
+  elevation: 45
+}).rename('hillshade');
+// ee.Terrain.hillshade(input, azimuth, elevation)
+// Argument	Type	Details
+// input	Image	An elevation image, in meters.
+// azimuth	Float, default: 270	The illumination azimuth in degrees from north.
+// elevation	Float, default: 45	The illumination elevation in degrees.
+
+// HillShadow image from a DEM
+// Does not compute
+// var hillShadow = ee.Terrain.hillShadow({
+//   image: dem, 
+//   azimuth: 270, 
+//   zenith: 45, 
+//   neighborhoodSize: 4, 
+//   hysteresis: false
+// }).rename('hillShadow');
+
+// Calculate Northernness 
+var northernness = aspect_gee.subtract(180).abs().rename('northernness');
+
+// OR: 
+// Use the ee.Terrain.products function to calculate slope, aspect, and
+// hillshade simultaneously. The output bands are appended to the input image.
+// Hillshade is calculated based on illumination azimuth=270, elevation=45.
+// var terrain = ee.Terrain.products(dem);
+// print('ee.Terrain.products bands', terrain.bandNames());
+
+*/
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// Define the function to resample and reproject an image, decrease pixel size, downscale
+///////////////////////////////////////////////////////////////////////////////////////////
+function reproj_dwn_scal(image) {
+  // Get the band name (assuming a single band image, or choose a specific band)
+  var bandName = image.bandNames().get(0);
+  
+  // Get the original resolution
+  var originalResolution = image.select([bandName]).projection().nominalScale().getInfo();
+  var bandNameString = bandName.getInfo();
+
+  // Resample and reproject the image
+    var reprojectedImage = image.resample('bilinear') // Use bilinear resampling to avoid artifacts, bicubic is better but can introduce artifacts 
+                             .reproject({
+                               crs: dem_crs,       // Target coordinate reference system
+                               scale: output_scale // Target scale in meters
+                             });
+
+  // Get the new resolution
+  var newResolution = reprojectedImage.select([bandName]).projection().nominalScale().getInfo();
+
+  // Print both resolutions in a single statement
+  print('Resolution (' + bandNameString + '): \noriginal = ' + originalResolution + ' \nnew = ' + newResolution);
+  
+  return reprojectedImage;
+}
+
+// For a function with more flexibility in scale and crs:
+// Define the function to resample (Downscaling) and reproject an image
+// function reproj_dscal(image, targetCRS, targetScale) {
+//  return image.resample('bilinear') // Use bilinear resampling to avoid artifacts
+//              .reproject({
+//                crs: targetCRS,    // Target coordinate reference system
+//                scale: targetScale // Target scale in meters
+//              });
+// }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// Define the function to aggregate and reproject an image, increase pixel size, upscale
+///////////////////////////////////////////////////////////////////////////////////////////
+function reproj_up_scal(image) {
+  // Get the band name (assuming a single band image, or choose a specific band)
+  var bandName = image.bandNames().get(0);
+  
+  // Get the original resolution
+  var originalResolution = image.select([bandName]).projection().nominalScale().getInfo();
+  var bandNameString = bandName.getInfo();
+
+  // Aggregate and reproject the image
+  // Documentation: https://developers.google.com/earth-engine/guides/resample
+    var reprojectedImage = image.reduceResolution({
+                              reducer: ee.Reducer.mean(),
+                              bestEffort: true // true: attempts to perform the operation as efficiently as possible, even if it means not including all pixels 
+                              //for 30m, false was ok, but for 90m gives the error: 'Too many input pixels per output pixel', then need to change to 'true', for details see https://spatialthoughts.com/2021/05/13/aggregating-population-data-gee/
+                            })
+                            .reproject({
+                              crs: dem_crs,
+                              scale: output_scale
+                            });
+
+  // Get the new resolution
+  var newResolution = reprojectedImage.select([bandName]).projection().nominalScale().getInfo();
+  
+  // Print both resolutions in a single statement
+  print('Resolution (' + bandNameString + '): \noriginal = ' + originalResolution + ' \nnew = ' + newResolution);
+
+  return reprojectedImage;
+}
+
+//////////////////////////////////////////////////////////////// TPI 
+//// Global ALOS mTPI (Multi-Scale Topographic Position Index) :: https://developers.google.com/earth-engine/datasets/catalog/CSP_ERGo_1_0_Global_ALOS_mTPI 
+var tpi_im = ee.Image('CSP/ERGo/1_0/Global/ALOS_mTPI').clipToCollection(bbox).select('AVE').rename('tpi');
+
+//////////////////////////////////////////////////////////////// CHILI
+/// Global ALOS CHILI (Continuous Heat-Insolation Load Index) :: https://developers.google.com/earth-engine/datasets/catalog/CSP_ERGo_1_0_Global_ALOS_CHILI
+// https://www.csp-inc.org/
+// https://mw1.google.com/ges/dd/images/CSP_ERGo_CHILI_sample.png
+var chili = ee.Image('CSP/ERGo/1_0/Global/ALOS_CHILI').clipToCollection(bbox).select('constant').rename('chili');
+
+//////////////////////////////////////////////////////////////// Landform
+/// Global ALOS Landforms :: https://developers.google.com/earth-engine/datasets/catalog/CSP_ERGo_1_0_Global_ALOS_landforms
+var landform = ee.Image('CSP/ERGo/1_0/Global/ALOS_landforms').clipToCollection(bbox).rename('landform'); // ALOS
+
+//////////////////////////////////////////////////////////////// topo_diver
+/// Global ALOS Topographic Diversity :: https://developers.google.com/earth-engine/datasets/catalog/CSP_ERGo_1_0_Global_ALOS_topoDiversity
+var topo_diver = ee.Image('CSP/ERGo/1_0/Global/ALOS_topoDiversity').clipToCollection(bbox).rename('topo_diver');
+
+//////////////////////////////////////////////////////////////// 
+/// MERIT Hydro: Global Hydrography Datasets :: https://developers.google.com/earth-engine/datasets/catalog/MERIT_Hydro_v1_0_1/
+// Flow Direction (Local Drainage Direction)
+var flow_dir = ee.Image('MERIT/Hydro/v1_0_1').clipToCollection(bbox).select('dir').rename('flow_dir');
+
+var flow_accumul = ee.Image('MERIT/Hydro/v1_0_1').clipToCollection(bbox).select('upa').rename('flow_accumul');
+// Upstream drainage area (flow accumulation area)
+
+var river_chann_width = ee.Image('MERIT/Hydro/v1_0_1').clipToCollection(bbox).select('viswth').rename('river_chann_width');
+// Visualization of the river channel width
+
+var hand = ee.Image('MERIT/Hydro/v1_0_1').clipToCollection(bbox).select('hnd').rename('hand');
+// Hydrologically adjusted elevations, also know as "hand" (height above the nearest drainage) 
+
+////////////////////////////////////////////////////////////////////////////////
+/// Climate data
+////////////////////////////////////////////////////////////////////////////////
+// Load the WorldClim Climatology V1 - temperature and preciptation
+// https://developers.google.com/earth-engine/datasets/catalog/WORLDCLIM_V1_MONTHLY
+var clim = ee.ImageCollection('WORLDCLIM/V1/MONTHLY').filterBounds(bbox);
+
+// Select temp_avg and preciptation from clim
+var temp_avg = clim.select('tavg').median().multiply(0.1).rename('temp_avg'); 
+
+var preciptation = clim.select('prec').median().rename('preciptation'); // .multiply(0.1); 
+
+////////////////////////////////////////////////////////////////////////////////
+/// ESA WorldCover 10m v200 :: https://developers.google.com/earth-engine/datasets/catalog/ESA_WorldCover_v200
+////////////////////////////////////////////////////////////////////////////////
+var landcover = ee.ImageCollection('ESA/WorldCover/v200').filterBounds(bbox).first().rename('landcover');
+// var dataset = ee.ImageCollection('ESA/WorldCover/v100'); 
+// var dataset = ee.Image('COPERNICUS/Landcover/100m/Proba-V-C3/Global/2019'); 
+// var dataset = ee.Image('ESA/GLOBCOVER_L4_200901_200912_V2_3'); 
+
+////////////////////////////////////////////////////////////////////////////////
+/// Lithological indexes 
+/// Source: https://github.com/AmirhosseinAhrari/GoogleEarthEngine/blob/3f432a9df06c3e8c022919e545789d6aaaf5b9a0/00067_aster_lithology :: https://www.youtube.com/@amirhosseinahrarigee
+/// Scientific reference for indexes: https://doi.org/10.1016/j.oregeorev.2018.04.014
+////////////////////////////////////////////////////////////////////////////////
+var lith_ind = ee.Image("users/Namibia_map/generated_covariates/litho_ind_epsg_4326_buff_2km_res_90m").multiply(1000000).round().divide(1000000);
+
+////////////////////////////////////////////////////////////////////////////////
+/// Evapotranspiration data
+////////////////////////////////////////////////////////////////////////////////
+// https://developers.google.com/earth-engine/datasets/catalog/OpenET_ENSEMBLE_CONUS_GRIDMET_MONTHLY_v2_0
+// Compute the annual evapotranspiration (ET) as the median of the monthly ET
+// var et = ee.ImageCollection('OpenET/ENSEMBLE/CONUS/GRIDMET/MONTHLY/v2_0').select('et_ensemble_mad').median().rename("et");
+// Since it is derived from landsat, the pixel size is varing with the scale, thus no need to resample or reproject it
+
+/////////////////////////////////////////////////////////////// 
+// Load the Landsat 8 image collection 2014-01-01', '2016-12-31
+// https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2 
+// var Landsat = ee.ImageCollection('LANDSAT/LC09/C02/T2_L2'); // Landsat 9 
+// var Landsat = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2"); // For Landsat 9 see: https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC09_C02_T1_L2
+
+/////////////////////////////////////////////////////////////////
+/// Landsat winter and summer (dry and wet season)
+/////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////
+/// Winter 
+/////////////////////////////////////////////////////////////////
+
+// Assign a common name to the sensor-specific bands
+// Source: https://gis.stackexchange.com/a/339828
+var LC8_BANDS = ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']; //Landsat 8
+var LC7_BANDS = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']; //Landsat 7
+var LC5_BANDS = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']; //Llandsat 5
+var STD_NAMES_w = ['blue_w', 'green_w', 'red_w', 'nir_w', 'swir1_w', 'swir2_w'];
+
+// Load the Landsat 5 image collection surface reflectance
+// https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LT05_C02_T1_L2
+var landsat5_w = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterBounds(bbox).select(LC5_BANDS, STD_NAMES_w) // Landsat 5
+    // filter start and end date
+    //.filterDate('1985-01-01', '2011-12-31') // 1984-03-16T16:18:01Z–2012-05-05T17:54:06Z
+    // filter by months
+    .filter(ee.Filter.calendarRange(6, 7,'month'))
+    // Limit cloud by percent 
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    // sort leat cloud cover
+    .sort('CLOUD_COVER'); 
+
+// Load the Landsat 7 image collection surface reflectance
+// https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LE07_C02_T1_L2
+var landsat7_w = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterBounds(bbox).select(LC7_BANDS, STD_NAMES_w) // Landsat 7
+    //.filterDate('2012-01-01', '2013-12-31') // 1999-05-28T01:02:17Z–2024-01-19T01:39:58Z
+    .filter(ee.Filter.calendarRange(6, 7,'month'))
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    .sort('CLOUD_COVER'); 
+    
+// Load the Landsat 8 image collection surface reflectance
+// https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2
+var landsat8_w = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterBounds(bbox).select(LC8_BANDS, STD_NAMES_w) // Landsat 8
+    //.filterDate('2013-04-01', '2024-07-25') // 2013-03-18T15:58:14Z–2024-07-20T01:41:06Z
+    .filter(ee.Filter.calendarRange(6, 7,'month'))
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    .sort('CLOUD_COVER'); 
+
+// var lsat_winter = ee.ImageCollection(l5_w.merge(l7_w).merge(l8_w));  // drop LS7 image problems
+var lsat_winter = ee.ImageCollection(landsat5_w.merge(landsat8_w));
+
+// Applies scaling factors :: https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LT05_C02_T1_L2
+function applyScaleFactors(image) {
+  var opticalBands = image.multiply(0.0000275).add(-0.2);
+  return image.addBands(opticalBands, null, true);
+}
+lsat_winter = lsat_winter.map(applyScaleFactors);
+
+// Comnpute average across all years
+lsat_winter = lsat_winter.median();
+
+// Compute the Normalized Difference Vegetation Index (NDVI)
+// ((NIR - RED) / (NIR + RED + L))
+var red = lsat_winter.select('red_w');
+var nir = lsat_winter.select('nir_w');
+var ndvi_w = nir.subtract(red).divide(nir.add(red)).rename('ndvi_w');
+
+// Compute the Soil Adjusted Vegetation Index (SAVI) :: https://gis.stackexchange.com/a/424227/178680
+// SAVI = ((Band 5 – Band 4) / (Band 5 + Band 4 + 0.5)) * (1.5). :: https://www.usgs.gov/landsat-missions/landsat-soil-adjusted-vegetation-index
+var savi_w = lsat_winter.expression(
+    '1.5*((NIR-RED)/(NIR+RED+0.5))',{
+        'NIR':lsat_winter.select('nir_w'),
+        'RED':lsat_winter.select('red_w')
+    }).rename('savi_w');
+
+// Compute the Modifiedt Soil Adjusted Vegetation Index (MSAVI)
+// MSAVI: (2 * NIR + 1 - sqrt((2 * NIR + 1)^2 - 8 * (NIR - Red))) / 2 :: https://www.usgs.gov/landsat-missions/landsat-modified-soil-adjusted-vegetation-index
+var msavi_w = lsat_winter.expression(
+  '(2 * NIR + 1 - sqrt(pow(2 * NIR + 1, 2) - 8 * (NIR - Red))) / 2',
+  {
+    'NIR': lsat_winter.select('nir_w'),
+    'Red': lsat_winter.select('red_w')
+  }
+).rename('msavi_w');
+
+// Compute the Enhanced Vegetation Index (EVI)
+// EVI: 2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1)) :: # https://www.usgs.gov/landsat-missions/landsat-enhanced-vegetation-index
+var evi_w = lsat_winter.expression(
+  '2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1))',
+  {
+    'NIR': lsat_winter.select('nir_w'),
+    'Red': lsat_winter.select('red_w'),
+    'Blue': lsat_winter.select('blue_w')
+  }
+).rename('evi_w');
+
+// Compute the Kernel Normalized Difference Vegetation Index (kNDVI)
+// kNDVI: tanh(((NIR - Red) / (NIR + Red))^2)
+// kNDVI: tanh(ndvi^2)
+// https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/kndvi/
+// https://doi.org/10.1016/j.isprsjprs.2022.12.019
+// https://github.com/IPL-UV/kNDVI?tab=readme-ov-file
+var kndvi_w = ndvi_w.pow(2).tanh().rename('kndvi_w');
+
+/////////////////////////////////////////////////////////////////
+/// Summer
+/////////////////////////////////////////////////////////////////
+
+// Assign a common name to the sensor-specific bands
+// Source: https://gis.stackexchange.com/a/339828
+var LC8_BANDS = ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']; //Landsat 8
+var LC7_BANDS = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']; //Landsat 7
+var LC5_BANDS = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']; //Llandsat 5
+var STD_NAMES_s = ['blue_s', 'green_s', 'red_s', 'nir_s', 'swir1_s', 'swir2_s'];
+
+// Load the Landsat 5 image collection surface reflectance
+var landsat5_s = ee.ImageCollection('LANDSAT/LT05/C02/T1_L2').filterBounds(bbox).select(LC5_BANDS, STD_NAMES_s) // Landsat 5
+    //.filterDate('1985-01-01', '2011-12-31') 
+    .filter(ee.Filter.calendarRange(2, 3,'month'))
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    .sort('CLOUD_COVER'); 
+
+// Load the Landsat 7 image collection surface reflectance
+var landsat7_s = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2').filterBounds(bbox).select(LC7_BANDS, STD_NAMES_s) // Landsat 7
+    //.filterDate('2012-01-01', '2013-12-31') // 1999-05-28T01:02:17Z–2024-01-19T01:39:58Z
+    .filter(ee.Filter.calendarRange(2, 3,'month'))
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    .sort('CLOUD_COVER'); 
+
+// Load the Landsat 8 image collection surface reflectance
+var landsat8_s = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterBounds(bbox).select(LC8_BANDS, STD_NAMES_s) // Landsat 8
+    //.filterDate('2013-04-01', '2024-07-25') // 2013-03-18T15:58:14Z–2024-07-20T01:41:06Z
+    .filter(ee.Filter.calendarRange(2, 3,'month'))
+    .filter(ee.Filter.lte('CLOUD_COVER', 1)) 
+    .sort('CLOUD_COVER'); 
+
+// var lsat_summer = ee.ImageCollection(l5_s.merge(l7_s).merge(l8_s)); // drop LS7 image problems
+var lsat_summer = ee.ImageCollection(landsat5_s.merge(landsat8_s));
+
+// Applies scaling factors :: https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LT05_C02_T1_L2
+function applyScaleFactors(image) {
+  var opticalBands = image.multiply(0.0000275).add(-0.2);
+  return image.addBands(opticalBands, null, true);
+}
+lsat_summer = lsat_summer.map(applyScaleFactors);
+
+// Comnpute average across all years
+lsat_summer = lsat_summer.median();
+
+// Compute the Normalized Difference Vegetation Index (NDVI)
+// ((NIR - RED) / (NIR + RED + L))
+var red = lsat_summer.select('red_s');
+var nir = lsat_summer.select('nir_s');
+var ndvi_s = nir.subtract(red).divide(nir.add(red)).rename('ndvi_s');
+
+// Compute the Soil Adjusted Vegetation Index (SAVI)
+// SAVI = ((Band 5 - Band 4) / (Band 5 + Band 4 + 0.5)) * (1.5). :: https://www.usgs.gov/landsat-missions/landsat-soil-adjusted-vegetation-index
+var savi_s = lsat_summer.expression(
+    '1.5*((NIR-RED)/(NIR+RED+0.5))',{
+        'NIR':lsat_summer.select('nir_s'),
+        'RED':lsat_summer.select('red_s')
+    }).rename('savi_s');
+
+// Compute the Modifiedt Soil Adjusted Vegetation Index (MSAVI)
+// MSAVI: (2 * NIR + 1 - sqrt((2 * NIR + 1)^2 - 8 * (NIR - Red))) / 2 :: https://www.usgs.gov/landsat-missions/landsat-modified-soil-adjusted-vegetation-index
+var msavi_s = lsat_summer.expression(
+  '(2 * NIR + 1 - sqrt(pow(2 * NIR + 1, 2) - 8 * (NIR - Red))) / 2',
+  {
+    'NIR': lsat_summer.select('nir_s'),
+    'Red': lsat_summer.select('red_s')
+  }
+).rename('msavi_s');
+
+// Compute the Enhanced Vegetation Index (EVI)
+// EVI: 2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1)) :: # https://www.usgs.gov/landsat-missions/landsat-enhanced-vegetation-index
+var evi_s = lsat_summer.expression(
+  '2.5 * ((NIR - Red) / (NIR + 6 * Red - 7.5 * Blue + 1))',
+  {
+    'NIR': lsat_summer.select('nir_s'),
+    'Red': lsat_summer.select('red_s'),
+    'Blue': lsat_summer.select('blue_s')
+  }
+).rename('evi_s');
+
+// Compute the Kernel Normalized Difference Vegetation Index (kNDVI)
+// kNDVI: tanh(((NIR - Red) / (NIR + Red))^2)
+// kNDVI: tanh(ndvi^2)
+// https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/kndvi/
+// https://doi.org/10.1016/j.isprsjprs.2022.12.019
+// https://github.com/IPL-UV/kNDVI?tab=readme-ov-file
+var kndvi_s = ndvi_s.pow(2).tanh().rename('kndvi_s');
+
+
+////////////////////////////////////////////////////////////////////////
+/// Landsat scale
+////////////////////////////////////////////////////////////////////////
+// Get scale from Landsat (30 m) 
+////// var Landsat_scale_winter = lsat_winter.first().projection().nominalScale(); // after median or mosaic, no need to ask .fisrt()
+// var Landsat_scale_winter = lsat_winter.projection().nominalScale();
+// print('Landsat winter resolution (before median)', Landsat_scale_winter); 
+//  // Adjust landsat spatial resolution 
+// lsat_winter = lsat_winter.setDefaultProjection(lsat_winter.projection());
+
+
+////////////////////////////////////////////////////////////////////////
+/// Landsat scale
+////////////////////////////////////////////////////////////////////////
+// Get scale from Landsat (30 m) 
+///// var Landsat_scale_summer = lsat_summer.first().projection().nominalScale(); // after median or mosaic, no need to ask .fisrt()
+// var Landsat_scale_summer = lsat_summer.projection().nominalScale(); 
+// print('Landsat summer resolution (before median)', Landsat_scale_summer); 
+//  // Adjust landsat spatial resolution 
+// lsat_summer = lsat_summer.setDefaultProjection(lsat_summer.projection());
+
+
+////////////////////////////////////////////////////////////////////////
+/// Mineralogy indexes (D’Avello et al.; USDA Soil Survey Handbook - Kienast-Brown, 2017; Nield et al.,2007; Boettinger et al., 2008)
+////////////////////////////////////////////////////////////////////////
+/*
+Carbonate Difference Ratio         (Red-Green)/(Red+Green)       Landsat-8 (B4-B3)/(B4+B3)    Landsat-5,7 (B3-B2)/(B3+B2)
+Clay Difference Ratio              (SWIR1-SWIR2)/(SWIR1+ SWIR2)  Landsat-8 (B6-B7)/(B6+B7)    Landsat-5,7 (B5-B7)/(B5+B7)
+Ferrous Minerals Difference Ratio  (SWIR1-NIR)/(SWIR1+NIR)       Landsat-8 (B6-B5)/(B6+B5)    Landsat-5,7 (B5-B4)/(B5+B4)
+Iron                               (Red- SWIR2)/(Red+SWIR2)      Landsat-8 (B4-B7)/(B4+B7)    Landsat-5,7 (B3-B7)/(B3+B7)
+Rock Outcrop                       (SWIR1-Green)/(SWIR1+Green)   Landsat-8 (B6-B3)/(B6+B3)    Landsat-5,7 (B5-B2)/(B5+B2)
+*/
+
+var b_blue_w = lsat_winter.select('blue_w');
+var b_green_w = lsat_winter.select('green_w');
+var b_red_w = lsat_winter.select('red_w');
+var b_nir_w = lsat_winter.select('nir_w');
+var b_swir1_w = lsat_winter.select('swir1_w');
+var b_swir2_w = lsat_winter.select('swir2_w');
+
+// Carbonate Difference Ratio ; also called Carbonate Normalization ratio ; also called gypsic index
+//(Red-Green)/(Red+Green)
+var carb_diff = b_red_w.subtract(b_green_w).divide(b_red_w.add(b_green_w)).rename('carb_diff');
+
+// Clay Difference Ratio ; also called Clay Normalization ratio ; also called natric index
+//(SWIR1-SWIR2)/(SWIR1+ SWIR2)
+var clay_diff = b_swir1_w.subtract(b_swir2_w).divide(b_swir1_w.add(b_swir2_w)).rename('clay_diff');
+
+// Ferrous Minerals Difference Ratio ; also called Ferrous Minerals Normalization ratio
+//(SWIR1-NIR)/(SWIR1+NIR)
+var ferr_diff = b_swir1_w.subtract(b_nir_w).divide(b_swir1_w.add(b_nir_w)).rename('ferr_diff');
+
+// Iron Difference Ratio ; also called Iron Normalization ratio 
+//(Red- SWIR2)/(Red+SWIR2)
+var iron = b_red_w.subtract(b_swir2_w).divide(b_red_w.add(b_swir2_w)).rename('iron');
+
+// Rock Outcrop Difference Ratio ; also called Rock Outcrop Normalization ratio 
+//(SWIR1-Green)/(SWIR1+Green)
+var rock_out = b_swir1_w.subtract(b_green_w).divide(b_swir1_w.add(b_green_w)).rename('rock_out');
+
+
+////////////////////////////////////////////////////////////////////////////////////
+/// Add external covariates 
+////////////////////////////////////////////////////////////////////////////////////
+var curv_max = ee.Image("users/Namibia_map/uploaded_covariates/Curvature_max_90m_epsg_4326").rename('curv_max'); 
+var river_dist = ee.Image("users/Namibia_map/uploaded_covariates/Distance_rivers_epsg_4326").rename('river_dist'); 
+var flow_lend_d = ee.Image("users/Namibia_map/uploaded_covariates/HydroSheds_Flow_Length_Downstream_15arcsec_epsg_4326").rename('flow_lend_d'); 
+var convex = ee.Image("users/Namibia_map/uploaded_covariates/Namibia_CONVEXITY_2km_buffer").rename('convex'); 
+var rugg = ee.Image("users/Namibia_map/uploaded_covariates/Namibia_RUGGEDNESS_Riley_30m_2km_buffer").rename('rugg'); 
+var rain_coef = ee.Image("users/Namibia_map/uploaded_covariates/Rainfall_Coefficient_of_Variation").rename('rain_coef'); 
+var pet = ee.Image("users/Namibia_map/uploaded_covariates/pet_v3_yr").rename('pet'); // * from Global Aridity Index and Potential Evapo-Transpiration (ET0) Database v3, Robert J. Zomer, Antonio Trabucco
+var arid_ind = ee.Image("users/Namibia_map/uploaded_covariates/aridity_gai_v3_yr").rename('arid_ind'); // * from Global Aridity Index and Potential Evapo-Transpiration (ET0) Database v3, Robert J. Zomer, Antonio Trabucco
+var veg_types = ee.Image("users/Namibia_map/uploaded_covariates/Veg_types_geo_90").rename('veg_types');
+var prec_wc2 = ee.Image("users/Namibia_map/uploaded_covariates/Prec_mean_annual_WorldClim_2_30s").rename('prec_wc2');
+var tavg_wc2 = ee.Image("users/Namibia_map/uploaded_covariates/Tavg_WorldClim_2_30s").rename('tavg_wc2');
+var geology_a = ee.Image("users/Namibia_map/uploaded_covariates/Geology_90m_atlas").rename('geology_a'); 
+var flow_len_up = ee.Image("users/Namibia_map/uploaded_covariates/flow_length_upstream_hydrosheds").rename('flow_len_up');
+
+// filled
+var geology = ee.Image("users/Namibia_map/filled/Litho__geographic_fill").rename('geology');
+var geology_simp = ee.Image("users/Namibia_map/filled/Litho__geographic_simplified_fill").rename('geology_simp');
+var aez_n = ee.Image("users/Namibia_map/filled/aez_2021_fill").rename('aez_n');
+var aez = ee.Image("users/Namibia_map/filled/aez_old_fill").rename('aez');
+var aspp = ee.Image("users/Namibia_map/filled/av_seas_plnt_prod_fill").rename('aspp');
+var landform_iwa = ee.Image("users/Namibia_map/filled/landform_iwa_fill").rename('landform_iwa'); //
+var landform_mey = ee.Image("users/Namibia_map/filled/landform_mey_fill").rename('landform_mey'); //
+var namsoil_126 = ee.Image("users/Namibia_map/filled/namsoilmap_126_geo_90_fill").rename('namsoil_126');
+var namsoil_13 = ee.Image("users/Namibia_map/filled/namsoilmap_13_geo_90_fill").rename('namsoil_13');
+var cc = ee.Image("users/Namibia_map/filled/pot_cc_fill").rename('cc');
+
+// Categorical covariates should use .round().toInt() after any calculations
+// Continuos covariates will be round in 6 digits with: .multiply(1000000).round().divide(1000000)
+// This can speed computation time, and may facilitate for the model establish relationships avoiding noise
+
+// Call the function reproj_dwn_scal to reproject and resample 
+// gee covariates
+dem = reproj_up_scal(dem).multiply(1000000).round().divide(1000000);                        // upscale // from 30.92 to 90
+var tpi = reproj_dwn_scal(tpi_im).multiply(1000000).round().divide(1000000);                           // from 270 to 90
+// chili = reproj_dwn_scal(chili).multiply(1000000).round().divide(1000000);                           // from 90 to 90 // already in 90 m
+// landform = reproj_dwn_scal(landform).multiply(1000000).round().divide(1000000); // ALOS             // from 90 to 90 // already in 90 m
+topo_diver = reproj_dwn_scal(topo_diver).multiply(1000000).round().divide(1000000);                    // from 270 to 90
+flow_dir = reproj_dwn_scal(flow_dir).multiply(1000000).round().divide(1000000);                        // from 92.77 to 90
+flow_accumul = reproj_dwn_scal(flow_accumul).multiply(1000000).round().divide(1000000);                // from 92.77 to 90
+river_chann_width = reproj_dwn_scal(river_chann_width).multiply(1000000).round().divide(1000000);      // from 92.77 to 90
+hand = reproj_dwn_scal(hand).multiply(1000000).round().divide(1000000);                                // from 92.77 to 90
+temp_avg = reproj_dwn_scal(temp_avg).multiply(1000000).round().divide(1000000);                        // from 927.67 to 90
+preciptation = reproj_dwn_scal(preciptation).multiply(1000000).round().divide(1000000);                // from 927.67 to 90
+
+// Call the function reproj_up_scal to reproject and aggregate
+landcover = reproj_up_scal(landcover).round().toInt();                                      // upscale // from 9.28 to 90
+
+// Scale for et
+//et = reproj_up_scal(et); // upscale
+//et = reproj_dwn_scal(et); // upscale
+// setDefaultProjection for et
+// et = et.setDefaultProjection(et.projection());
+
+// user covariates
+curv_max = reproj_dwn_scal(curv_max).multiply(1000000).round().divide(1000000);                        // from 92.41 to 90
+river_dist = reproj_dwn_scal(river_dist).multiply(1000000).round().divide(1000000);                    // from 463.83 to 90
+flow_lend_d = reproj_dwn_scal(flow_lend_d).multiply(1000000).round().divide(1000000);                  // from 463.83 to 90
+convex = reproj_up_scal(convex).multiply(1000000).round().divide(1000000);                  // upscale // from 29.53 to 90
+rugg = reproj_up_scal(rugg).multiply(1000000).round().divide(1000000);                      // upscale // from 29.53 to 90
+rain_coef = reproj_dwn_scal(rain_coef).multiply(1000000).round().divide(1000000);                      // from 1003.7 to 90
+geology = reproj_dwn_scal(geology).round().toInt();                                                    // from 93.78 to 90
+geology_simp = reproj_dwn_scal(geology_simp).round().toInt();                                          // from 93.78 to 90
+pet = reproj_dwn_scal(pet).multiply(1000000).round().divide(1000000);                                  // from 93.78 to 90
+arid_ind = reproj_dwn_scal(arid_ind).multiply(1000000).round().divide(1000000);                        // from 927.66 to 90
+namsoil_13 = reproj_dwn_scal(namsoil_13).round().toInt();                                              // from 93.78 to 90
+namsoil_126 = reproj_dwn_scal(namsoil_126).round().toInt();                                            // from 93.78 to 90
+aspp = reproj_dwn_scal(aspp).multiply(1000000).round().divide(1000000);                                // from 993.92 to 90
+aez = reproj_dwn_scal(aez).round().toInt();                                                            // from 93.78 to 90
+veg_types = reproj_dwn_scal(veg_types).round().toInt();                                                // from 93.78 to 90
+aez_n = reproj_dwn_scal(aez_n).round().toInt();                                                        // from 231.92 to 90
+cc = reproj_dwn_scal(cc).multiply(1000000).round().divide(1000000);                                    // from 111.32 to 90
+landform_iwa = reproj_dwn_scal(landform_iwa).multiply(1000000).round().divide(1000000);                // from 932.43 to 90
+landform_mey = reproj_dwn_scal(landform_mey).multiply(1000000).round().divide(1000000);                // from 927.66 to 90
+// lith_ind = reproj_dwn_scal(lith_ind);                                                               // from 90 to 90 // names as 'kaolinite' in console // already in 90 m
+prec_wc2 = reproj_dwn_scal(prec_wc2).multiply(1000000).round().divide(1000000);                        // from 927.66 to 90
+tavg_wc2 = reproj_dwn_scal(tavg_wc2).multiply(1000000).round().divide(1000000);                        // from 927.66 to 90
+geology_a = reproj_dwn_scal(geology_a).round().toInt();                                                // from 90.97 to 90
+flow_len_up = reproj_dwn_scal(flow_len_up).multiply(1000000).round().divide(1000000);                  // from 463.83 to 90
+
+
+////////////////////////////////////////////////////////////////////////////////////
+/// Terrain derivations with TAGEE
+////////////////////////////////////////////////////////////////////////////////////
+var TAGEE = require('users/zecojls/TAGEE:TAGEE-functions');
+
+// Smoothing filter
+var gaussianFilter = ee.Kernel.gaussian({
+  radius: 3, sigma: 2, units: 'pixels', normalize: true
+});
+
+// Smoothing the DEM with the gaussian kernel.
+var dem_sm = dem.convolve(gaussianFilter).resample("bilinear");
+
+// Terrain analysis
+var terr_attributes = TAGEE.terrainAnalysis(TAGEE, dem_sm); //.updateMask(waterMask); // Not applicable for Nmabia, we can do it in the final product
+print(terr_attributes.bandNames(), 'Derived Terrain Attributres with TAGEE');
+
+// Apply selected                
+var bands_sel = [//"Elevation",
+                 "Slope",
+                 "Aspect",
+                 // "Hillshade",
+                 "Northness",
+                 "Eastness",
+                 "HorizontalCurvature",
+                 "VerticalCurvature" // ,
+                 //"MeanCurvature",
+                 //"GaussianCurvature",
+                 //"MinimalCurvature",
+                 //"MaximalCurvature",
+                 //"ShapeIndex"
+                 ]; // can be commented here to drop, for example: Elevation, Slope, Aspect, Hillshade
+
+// Select the bands to use
+var terr_attrib = terr_attributes.select(bands_sel).multiply(1000000).round().divide(1000000);
+print(terr_attrib.bandNames(), 'Selected Derived Terrain Attributres with TAGEE');
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////// 
+/// Stack images to one export the "covariate stack"
+//////////////////////////////////////////////////////////////////////////////////////////////////////// 
+var predictors = dem//.addBands(slope_gee) // coming from TAGEE
+                    //.addBands(aspect_gee) // coming from TAGEE
+                    //.addBands(hillshade) // droped beacuse hillshade is a visualization composed by aspect and slope 
+                    //.addBands(northernness) // coming from TAGEE
+                    .addBands(tpi)
+                    .addBands(chili)
+                    .addBands(landform) // ALOS
+                    .addBands(topo_diver)
+                    .addBands(flow_dir)
+                    .addBands(flow_accumul) // 
+                    //.addBands(river_chann_width) // droped
+                    .addBands(landcover)
+                    .addBands(hand)
+                    //.addBands(temp_avg) // world clim v1 (replaced by version 2)
+                    //.addBands(preciptation) // world clim v1 (replaced by version 2)
+                    //.addBands(et)
+                    .addBands(lsat_winter)
+                    .addBands(ndvi_w)
+                    .addBands(savi_w)
+                    .addBands(msavi_w)
+                    .addBands(evi_w)
+                    .addBands(kndvi_w)
+                    .addBands(lsat_summer) 
+                    .addBands(ndvi_s)
+                    .addBands(savi_s)
+                    .addBands(msavi_s)
+                    .addBands(evi_s)
+                    .addBands(kndvi_s)
+                    .addBands(curv_max) 
+                    .addBands(river_dist)
+                    .addBands(flow_lend_d)
+                    .addBands(convex)
+                    //.addBands(rugg)
+                    //.addBands(rain_coef)
+                    .addBands(geology)
+                    //.addBands(geology_simp)
+                    .addBands(pet)
+                    .addBands(arid_ind)
+                    .addBands(landform_iwa)
+                    //.addBands(landform_mey)
+                    .addBands(namsoil_13)
+                    //.addBands(namsoil_126)
+                    .addBands(aspp)
+                    .addBands(aez) // old
+                    .addBands(veg_types)
+                    .addBands(aez_n) // new
+                    .addBands(cc)
+                    .addBands(terr_attrib)
+                    .addBands(lith_ind)  // mineralogy
+                    .addBands(prec_wc2)  // world clim v2
+                    .addBands(tavg_wc2)  // world clim v2
+                    .addBands(geology_a)  
+                    .addBands(flow_len_up)  
+                    .addBands(carb_diff) // mineralogy
+                    .addBands(clay_diff) // mineralogy
+                    .addBands(ferr_diff) // mineralogy
+                    .addBands(iron)      // mineralogy
+                    .addBands(rock_out)  // mineralogy
+                    ;
+
+// clip for bbox_test_area
+// var predictors_bbox_test_area = predictors.clip(bbox_test_area);
+// var predictors_bbox_test_area = predictors.clipToCollection(bbox_test_area); 
+// print('Check Predictors bbox test area', predictors_bbox_test_area);
+
+// clip for shapefile
+// var predictors_bbox = predictors.clip(bbox);
+var predictors_bbox = predictors.clipToCollection(bbox); // the documentation tells to use clipToCollection() instead of clip() https://developers.google.com/earth-engine/apidocs/ee-image-clip
+print('Check Predictors_bbox', predictors_bbox);
+print('Check predictors bandNames', predictors.bandNames());
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+////// When export and error ocour: 
+////// Error: Exported bands must have compatible data types;
+////// found inconsistent types: Float32 and Byte
+//// Solution convert all to Float (to same datatype)  
+// Country
+//// predictors_bbox = predictors_bbox.toFloat(); 
+// Test area
+//// predictors_bbox_test_area = predictors_bbox_test_area.toFloat(); 
+/////// No need anymore, and it was turning the categorical covariates (integer) to decimal
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Export a Cloud Optimized GeoTIFF (COG) by setting the "cloudOptimized"
+/////////////////////////////////////////////////////////////////////////////////////////
+/*
+// Export test area to verification in local machine
+Export.image.toDrive({
+ image: predictors_bbox_test_area,
+ description: 'Covariates_export_bbox_test_area_g_drive',
+ folder: 'earth_engine_Nam_cov_preparation',
+ region: bbox_test_area,
+ // scale: 30,
+ scale: 5000,      // Temporary coarse resolution to optimize storage space, set desired resolution
+ // maxPixels: 1e10, // comment whenever possible, if not possible, set as minimal as possible, otherwise the output will be tiled 
+ crs: 'EPSG:4326',  
+ // formatOptions: {
+ //   cloudOptimized: true
+ // }
+});
+*/
+
+
+/*
+// Export covariates covering entire country as asset
+*/
+// Set the export "scale" and "crs" parameters.
+Export.image.toAsset({
+  // image: predictors,
+  image: predictors_bbox,
+  description: 'Covariates_export_as_asset_v27',
+  // assetId: 'users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v27_90m',
+  // assetId: 'users/' + user_ID + '/OPTIONAL_CUSTOM_FOLDER/all_predictors_bbox_epsg_4326_buff_2km_v27_90m',
+  assetId: 'users/' + user_ID + '/all_predictors_bbox_epsg_4326_buff_2km_v27_90m',
+  region: bbox,
+  //scale: output_scale, // 30, 60, 90
+  // scale: 90,
+  scale: 5000,      // Temporary coarse resolution to optimize storage space, set desired resolution
+  crs: 'EPSG:4326',
+  maxPixels: 1e13       // increase the default pixel limit to be able to export
+  // crs: dem_crs       // Error: Projection: The CRS of a map projection could not be parsed. (Error code: 3)
+});
+
+/*
+End script
+*/
+
+////////////////////////////////////////////////////////////////////////
+/////// Plot shapefile
+////////////////////////////////////////////////////////////////////////
+var Nam = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/National_boundary_Namibia"); // imported shapefile no buffer
+
+// Define stily for the 
+var contour = Nam.style({
+  color: '#585858',      // Cont color 
+  width: 2,              // Line thisckness
+  fillColor: '00000000'  // Fill color transparent 
+});
+// Add Nam shape to map view 
+Map.addLayer(contour, {}, 'Nam contour', true, 0.8);
+
+// Center map view
+Map.centerObject(Nam, 6); 
+// Map.setCenter(18.12, -22.22, 6); // center of the country 
+// Map.setCenter(37.8, -0.10, 9); // x and y, longitude and latitude, zoom level 
+
+////////////////////////////////////////////////////////////////////////
+/// Visualization of DEM and terrain
+////////////////////////////////////////////////////////////////////////
+var elevationVis = {
+  min: 0.0,
+  max: 1000.0,
+  palette: ['0000ff','00ffff','ffff00','ff0000','ffffff'],
+};
+//Map.addLayer(dem, elevationVis, 'DEM', false);
+
+//Map.addLayer(slope_gee, {min: 0, max: 89.99}, 'Slope', false);
+//Map.addLayer(aspect_gee, {min: 0, max: 359.99}, 'Aspect', false);
+//// Map.addLayer(hillShadow, {min: 0, max: 255}, 'HillShadow', false);
+//Map.addLayer(hillshade, {min: 0, max: 255}, 'Hillshade', false);
+//Map.addLayer(northernness, {min: 0, max: 359.99}, 'Northernness', false);
+
+////////////////////////////////////////////////////////////////////////
+/// Visualization of landsat and vegetation indexes
+////////////////////////////////////////////////////////////////////////
+
+// Winter
+var visualization_w = {bands: ['red_w', 'green_w', 'blue_w'], min: 0.0, max: 0.3,};
+var saviVis = {'min':-0.2, 'max':0.3, 'palette':['red', 'yellow', 'green']};  // shift the intervals from -1 to 1 to -.2 to .3 to expose the color pallet
+var ndviParams = {min: -0.5, max: 0.6, palette: ['blue', 'white', 'green']};
+// Display the result
+Map.addLayer(lsat_winter.clipToCollection(Nam), visualization_w, 'Composite winter True Color (321)', true);
+//Map.addLayer(ndvi_w, ndviParams, 'NDVI winter', false);
+//Map.addLayer(savi_w, saviVis, 'SAVI winter', false);
+
+// Summer
+var visualization_s = {bands: ['red_s', 'green_s', 'blue_s'], min: 0.0, max: 0.3,};
+// Display the result
+//Map.addLayer(lsat_summer, visualization_s, 'Composite summer True Color (321)', false);
+//Map.addLayer(ndvi_s, ndviParams, 'NDVI summer', false);
+//Map.addLayer(savi_s, saviVis, 'SAVI summer', false);
+
+
+// Add to the country area to the map 
+//Map.addLayer(bbox, {color: 'blue'}, 'bbox Namibia shapefile buffer 2km', true, 0.1); // 0.1 alpha
+
+// Add to the bbox test area to the map 
+//Map.addLayer(bbox_test_area, {color: 'blue'}, 'bbox Namibia test area', true, 0.2); // 0.3 alpha
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Function to add each band as a layer (some bands do not show features due to standard vis param)
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+// Function to add each band as a layer to the map
+function addBandsToMap(image, bandNames) {
+  bandNames.evaluate(function(bandList) {
+    bandList.forEach(function(band) {
+      var bandImage = image.select(band);
+      Map.addLayer(bandImage, {}, band);
+    });
+  });
+}
+
+// Add each band from predictors to the map
+addBandsToMap(predictors_bbox, predictors_bbox.bandNames()); // country 
+//addBandsToMap(predictors_bbox_test_area, predictors_bbox.bandNames()); // test area 
+*/
+
+print('End scrip');
+
+////////////////////////////////
+/////* --- end script --- */////
+////////////////////////////////

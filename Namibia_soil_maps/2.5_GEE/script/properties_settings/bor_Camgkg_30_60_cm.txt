@@ -1,0 +1,38 @@
+exports.bands_sel = [
+  "dem",
+  "chili",
+  "swir1_w",
+  "msavi_w",
+  "evi_w",
+  "green_s",
+  "nir_s",
+  "swir1_s",
+  "ndvi_s",
+  "savi_s",
+  "msavi_s",
+  "evi_s",
+  "kndvi_s",
+  "flow_lend_d",
+  "arid_ind",
+  "aspp",
+  "aez",
+  "veg_types",
+  "aez_n",
+  "cc",
+  "carbonate",
+  "mafic",
+  "prec_wc2",
+  "tavg_wc2",
+  "geology_a",
+  "carb_diff",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 12,
+  nodesize: 13,
+  sampsize: 0.73
+  //max_Nodes: 120,
+  //seed_: 0
+};

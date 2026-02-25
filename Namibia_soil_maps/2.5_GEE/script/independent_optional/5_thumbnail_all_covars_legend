@@ -1,0 +1,387 @@
+/////////////////////////////////////////////////////////////////////////////////////////
+/* 
+Print all covariates Namibia 
+Authors: Yuri Gelsleichter
+Feb 2025
+*/
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load assets
+/////////////////////////////////////////////////////////////////////////////////////////
+// var image = ee.Image("users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v25");
+var image = ee.Image("users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v27_90m");
+
+// Print band names for verification.
+print(image.bandNames(), "bands names");
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Define variables and settings
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Control flag: control between plot thumbnail or plot in the Map area
+var thumbnail = 1; // set to 1 to enable the thumnail plot in the UI panel 
+                   // any another value to plot in the map area 
+
+// List of bands.
+var bands = ["dem",
+             "tpi",
+             "chili",
+             "landform",
+             "topo_diver",
+             "flow_dir",
+             "flow_accumul",
+             "landcover",
+             "hand",
+             "blue_w",
+             "green_w",
+             "red_w",
+             "nir_w",
+             "swir1_w",
+             "swir2_w",
+             "ndvi_w",
+             "savi_w",
+             "msavi_w",
+             "evi_w",
+             "kndvi_w",
+             "blue_s",
+             "green_s",
+             "red_s",
+             "nir_s",
+             "swir1_s",
+             "swir2_s",
+             "ndvi_s",
+             "savi_s",
+             "msavi_s",
+             "evi_s",
+             "kndvi_s",
+             "curv_max",
+             "river_dist",
+             "flow_lend_d",
+             "convex",
+             "geology",
+             "pet",
+             "arid_ind",
+             "landform_iwa",
+             "namsoil_13",
+             "aspp",
+             "aez",
+             "veg_types",
+             "aez_n",
+             "cc",
+             "Slope",
+             "Aspect",
+             "Northness",
+             "Eastness",
+             "HorizontalCurvature",
+             "VerticalCurvature",
+             "kaolinite",
+             "calcite",
+             "quartz",
+             "carbonate",
+             "mafic",
+             "prec_wc2",
+             "tavg_wc2",
+             "geology_a",
+             "flow_len_up",
+             "carb_diff",
+             "clay_diff",
+             "ferr_diff",
+             "iron",
+             "rock_out"
+             ];
+
+var color_pallet = ["#0a0079", "#1e008e", "#1e02a2", "#1006b4", "#030bc5", "#0014d0", 
+                    "#001fd8", "#0533e2", "#175eee", "#1277f5", "#1190fa", "#1caefe", 
+                    "#2dbbff", "#3cc4ff", "#4dd0ff", "#66e0ff", "#a4e5ff", "#dcdcdc", 
+                    "#c5b9b9", "#336600", "#0b752e", "#33cc66", "#68f597", "#efdeb0", 
+                    "#f0c67f", "#dfae3d", "#ad9b20", "#a48e18", "#a0800f", "#9c7207", 
+                    "#9b6219", "#b79292", "#ac6b6b", "#b7484b", "#e77148"];
+
+// Define the region for Namibia.
+// Coordinates: [left, bottom, right, top]
+var region = ee.Geometry.Rectangle([11.6, -29.0, 25.4, -16.0]);
+
+// Create a dictionary that maps each band (or group of bands) to its visualization parameters.
+var vizParamsDict = {
+  "dem":                 {min: -1.17,      max: 2306.04,   unit: "(m)",  palette: ["#0a0079", "#1e008e", "#1e02a2", "#1006b4", "#030bc5", "#0014d0", "#001fd8", "#0533e2", "#175eee", "#1277f5", "#1190fa", "#1caefe", "#2dbbff", "#3cc4ff", "#4dd0ff", "#66e0ff", "#a4e5ff", "#dcdcdc", "#c5b9b9", "#336600", "#0b752e", "#33cc66", "#68f597", "#efdeb0", "#f0c67f", "#dfae3d", "#ad9b20", "#a48e18", "#a0800f", "#9c7207", "#9b6219", "#b79292", "#ac6b6b", "#b7484b", "#e77148"]},
+  "tpi":                 {min: -50.56,     max: 56,        unit: "",     palette: color_pallet}, // can add the colors here manually, as above
+  "chili":               {min: 175.55,     max: 249.13,    unit: "", palette: color_pallet},
+  "landform":            {min: 20,         max: 37    ,    unit: "(class)",  palette: color_pallet},
+  "topo_diver":          {min: 0.00,       max: 1,         unit: "", palette: color_pallet},
+  "flow_dir":            {min: 0,          max: 122.50,    unit: "", palette: color_pallet},
+  "flow_accumul":        {min: 0,          max: 800,       unit: "(km2)", palette: color_pallet},
+  "landcover":           {min: 10.09,      max: 90,        unit: "", palette: color_pallet},
+  "hand":                {min: 0,          max: 435.81,    unit: "(10 cm interval)", palette: color_pallet},
+  "blue_w":              {min: 0.013,      max: 0.376,     unit: "",     palette: color_pallet},
+  "green_w":             {min: 0.023,      max: 0.434,     unit: "",     palette: color_pallet},
+  "red_w":               {min: 0.003,      max: 0.473,     unit: "",     palette: color_pallet},
+  "nir_w":               {min: -0.001,     max: 0.528,     unit: "",     palette: color_pallet},
+  "swir1_w":             {min: 0.002,      max: 0.611,     unit: "",     palette: color_pallet},
+  "swir2_w":             {min: 0.002,      max: 0.523,     unit: "",     palette: color_pallet},
+  "ndvi_w":              {min: -0.5,       max: 0.74,      unit: "",     palette: color_pallet},
+  "savi_w":              {min: -0.168,     max: 0.351,     unit: "",     palette: color_pallet},
+  "msavi_w":             {min: -0.01,      max: 0.32,      unit: "",     palette: color_pallet},
+  "evi_w":               {min: -0.12,      max: 0.34,      unit: "",     palette: color_pallet},
+  "kndvi_w":             {min: -0.15,      max: 0.25,      unit: "",     palette: color_pallet},
+  "blue_s":              {min: 0.000,      max: 0.384,     unit: "",     palette: color_pallet},
+  "green_s":             {min: 0.008,      max: 0.444,     unit: "",     palette: color_pallet},
+  "red_s":               {min: 0.000,      max: 0.481,     unit: "",     palette: color_pallet},
+  "nir_s":               {min: -0.002,     max: 0.534,     unit: "",     palette: color_pallet},
+  "swir1_s":             {min: 0.001,      max: 0.597,     unit: "",     palette: color_pallet},
+  "swir2_s":             {min: 0.002,      max: 0.517,     unit: "",     palette: color_pallet},
+  "ndvi_s":              {min: -0.5,       max: 0.74,      unit: "",     palette: color_pallet},
+  "savi_s":              {min: -0.191,     max: 0.490,     unit: "",     palette: color_pallet},
+  "msavi_s":             {min: -0.11,      max: 0.490,     unit: "",     palette: color_pallet},
+  "evi_s":               {min: -0.14,      max: 0.52,      unit: "",     palette: color_pallet},
+  "kndvi_s":             {min: -0.15,      max: 0.5,       unit: "",     palette: color_pallet},
+  "curv_max":            {min: -286874.37, max: 9295722,   unit: "",  palette: color_pallet},
+  "river_dist":          {min: 0,          max: 20.899,    unit: "(m)",  palette: color_pallet},
+  "flow_lend_d":         {min: 0,          max: 2260474,   unit: "(m)",  palette: color_pallet},
+  "convex":              {min: 5,          max: 60,        unit: "(%)",  palette: color_pallet},
+  "geology":             {min: 1,          max: 202,       unit: "(class)",  palette: color_pallet},
+  "pet":                 {min: 1255.019,   max: 2831.853,  unit: "(mm/a)",  palette: color_pallet},
+  "arid_ind":            {min: 34.496,     max: 2856.189,  unit: "",  palette: color_pallet},
+  "landform_iwa":        {min: 1,          max: 16,        unit: "(class)",  palette: color_pallet},
+  "namsoil_13":          {min: 1,          max: 12,        unit: "(WRB RSG)",  palette: color_pallet},
+  "aspp":                {min: 36.255,     max: 17911.125, unit: "",  palette: color_pallet},
+  "aez":                 {min: 1,          max: 69,        unit: "(class)",  palette: color_pallet},
+  "veg_types":           {min: 1,          max: 29,        unit: "(class)",  palette: color_pallet},
+  "aez_n":               {min: 10.680,     max: 282,       unit: "(class)",  palette: color_pallet},
+  "cc":                  {min: 0,          max: 50,        unit: "unit (kg animal biomass/ha/a)",  palette: color_pallet},
+  "Slope":               {min: 0,          max: 37.426,    unit: "(°)",  palette: color_pallet},
+  "Aspect":              {min: 33.008,     max: 331.225,   unit: "(°)",  palette: color_pallet},
+  "Northness":           {min: -0.994,     max: 0.983,     unit: "",     palette: color_pallet},
+  "Eastness":            {min: -0.962,     max: 1,         unit: "",     palette: color_pallet},
+  "HorizontalCurvature": {min: -0.000,     max: 0.001,     unit: "",     palette: color_pallet},
+  "VerticalCurvature":   {min: -0.001,     max: 0.001,     unit: "",     palette: color_pallet},
+  "kaolinite":           {min: 0.5,        max: 1.2,       unit: "",     palette: color_pallet},
+  "calcite":             {min: 0.5,        max: 1.2,       unit: "",     palette: color_pallet},
+  "quartz":              {min: 0.8,        max: 1.2,       unit: "",     palette: color_pallet},
+  "carbonate":           {min: 0.8,        max: 1.2,       unit: "",     palette: color_pallet},
+  "mafic":               {min: 0.653,      max: 0.885,     unit: "",     palette: color_pallet},
+  "prec_wc2":            {min: 7,          max: 600,       unit: "(mm)", palette: color_pallet},
+  "tavg_wc2":            {min: 14,         max: 25,        unit: "(°C)", palette: color_pallet},
+  "geology_a":           {min: 1,          max: 29,        unit: "(classes)",  palette: color_pallet},
+  "flow_len_up":         {min: 0,          max: 495374,    unit: "(m)",     palette: color_pallet},
+  "carb_diff":           {min: -0.7,       max: 0.34,      unit: "",     palette: color_pallet},
+  "clay_diff":           {min: -0.1,       max: 0.31,      unit: "",     palette: color_pallet},
+  "ferr_diff":           {min: -0.6,       max: 2.35,      unit: "",     palette: color_pallet},
+  "iron":                {min: -0.398,     max: 0.908,     unit: "",     palette: color_pallet},
+  "rock_out":            {min: -0.939,     max: 0.613,     unit: "",     palette: color_pallet},
+  // For bands not listed, use the default parameters.
+  "default":             {min: 0,          max: 1,         unit: "(%)",  palette: ['cyan', 'blue', 'green', 'red']}
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Function to create a DISCRETE legend for a given vizParams
+/////////////////////////////////////////////////////////////////////////////////////////
+// The legend displays discrete color swatches with value ranges.
+function createDiscreteLegend(vizParams, bandName) {
+  // Create a panel to hold the legend.
+  var legendPanel = ui.Panel({
+    style: {
+      width: '200px', // legend width
+      margin: '5px 0px'
+    }
+  });
+
+  // Add a title label for the legend.
+  legendPanel.add(ui.Label({
+    // value: bandName + " legend",
+    value: bandName + " " + vizParams.unit,
+    style: {fontWeight: 'bold', fontSize: '12px', margin: '0px'}
+  }));
+
+  // Determine the number of bins (equal to the number of colors in the palette).
+  var n = vizParams.palette.length;
+  var minVal = vizParams.min;
+  var maxVal = vizParams.max;
+  var step = (maxVal - minVal) / n;
+
+  // For each bin create a panel with a swatch and a label.
+  for (var i = 0; i < n; i++) {
+    var lowerBound = minVal + i * step;
+    var upperBound = lowerBound + step;
+    var labelText = lowerBound.toFixed(2) + " - " + upperBound.toFixed(2);
+    
+    // Create a label with background color to serve as a color swatch.
+    var colorSwatch = ui.Label({
+      style: {
+        backgroundColor: vizParams.palette[i],
+        padding: '8px',
+        margin: '0px'
+      }
+    });
+    
+    // Arrange the swatch and label horizontally.
+    var swatchPanel = ui.Panel({
+      widgets: [
+        colorSwatch,
+        ui.Label(labelText, {margin: '0px 0px 0px 5px', fontSize: '10px'})
+      ],
+      layout: ui.Panel.Layout.flow('horizontal')
+    });
+    legendPanel.add(swatchPanel);
+  }
+  
+  return legendPanel;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Loop over bands to generate plots based on conditional selection
+/////////////////////////////////////////////////////////////////////////////////////////
+
+if (thumbnail === 1) {
+  print("Plot with thumbnail"); // send a message to the console
+  
+  /*
+  print("Export thumbnails"); // send a message to the console
+  // Export 
+  
+    bands.forEach(function(band) {
+    var bandImage = image.select(band);
+    Export.image.toDrive({
+      image: bandImage,
+      description: band + '_cov_thumb',
+      folder: 'covariates_thumbnails_geotiff_5000m',
+      region: region,
+      // scale: 1000,  // bigger is faster for thumbnail, instead of 90
+      scale: 5000,  // Temporary coarse resolution to optimize storage space, set desired resolution
+      crs: 'EPSG:4326',
+      maxPixels: 1e13
+    });
+  });
+  */
+
+  // Create a main panel to hold all the thumbnails and legends.
+  var mainPanel = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'), // (can be horizontal also)  
+    style: {width: '1200px'}                   // plot area width
+  });
+  mainPanel.add(ui.Label("Maps of covariates for Namibia", {fontWeight: 'bold'}));
+
+  bands.forEach(function(band) {
+    var vizParams = vizParamsDict[band] || vizParamsDict["default"];
+    
+    var vizForThumbnail = {
+      min: vizParams.min,
+      max: vizParams.max,
+      palette: vizParams.palette
+    };
+    
+    // Select the band from the image and apply visualize.
+    var bandImage = image.select(band).visualize(vizForThumbnail);
+    // var bandImage = image.select(band).visualize(vizParams); // old
+    
+    // Create the thumbnail
+    var thumb = ui.Thumbnail({
+      image: bandImage,
+      params: {
+        dimensions: '512x512', // thumbnail size
+        region: region,
+        format: 'png'
+      },
+      style: {height: '600px', width: '600px', margin: '10px'} // here can afect the image proportions
+    });
+    
+    // Create the discrete legend for the band.
+    var legend = createDiscreteLegend(vizParams, band);
+    
+    /* // Panel with the map and the legend below the map
+    // Create a UI panel to hold the thumbnail and legend.
+    var bandPanel = ui.Panel({
+      widgets: [
+        ui.Label(band, {fontWeight: 'bold'}),
+        thumb,
+        legend
+      ],
+      style: {margin: '10px'}
+    });
+    */
+    
+    // Panel with map and the legend to the left to the map
+    // Create a horizontal panel to fit the legend to the left and the map to the right
+    var panelHorizontal = ui.Panel({
+      widgets: [
+        legend,  // legenda to the left
+        thumb    // thumbnail to the right
+      ],
+      layout: ui.Panel.Layout.flow('horizontal'),
+      style: {margin: '10px'} // margins of legend
+    });
+
+    // Build the panel adding the label and the horizontal pannel
+    var bandPanel = ui.Panel({
+      widgets: [
+        ui.Label(band, {fontWeight: 'bold'}),
+        panelHorizontal
+      ],
+      style: {margin: '60px'} // margin of the legend plus the map
+    }); // end of panel of map and legend
+    
+    mainPanel.add(bandPanel);
+  });
+  
+  ui.root.clear();
+  ui.root.add(mainPanel);
+  
+} else {
+  print("Plot in the Map area"); // send a message to the console
+  
+  //bands.forEach(function(band) {
+  //  var vizParams = vizParamsDict[band] || vizParamsDict["default"];
+  //  // Add as map layer with the same visualization parameters.
+  //  Map.addLayer(image.select(band), vizParams, band, true); // true enable all, false have to click in the box
+  //  print(band + " layer added to Map" + 
+  //      "\nMin " + vizParams.min +
+  //      "\nMax " + vizParams.max);
+  //});
+  
+  var messages = [];
+
+  //bands.forEach(function(band) {
+  bands.slice().reverse().forEach(function(band) { // plot in reverse order to match with the console
+    var vizParams = vizParamsDict[band] || vizParamsDict["default"];
+    
+    // Add layer to the map
+    Map.addLayer(image.select(band), vizParams, band, true);
+    
+    
+    if (band === "dem") { // this will call the Map.centerObject, Map.setOptions at end of loop
+    // Define the background as sattelite as default
+    Map.setOptions('SATELLITE'); // other options ROADMAP, TERRAIN, HYBRID
+    
+    // Center map view
+    //Map.centerObject(Nam, 6); // object and zoom level
+    Map.centerObject(ee.Geometry.Point(22, -23), 6); // coordinates and zoom level
+
+    // Load study area of country shapefile 
+    var Nam = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/National_boundary_Namibia");
+
+    // Define style for the 'shapefile'
+    var contour = Nam.style({
+      color: '#0a0a0a',      // Line color (grey #585858)
+      width: 1.5,            // Line thisckness
+      fillColor: '00000000'  // Fill color transparent 
+    });
+    // Add Nam shape to map view 
+    // Map.addLayer(eeObject, visParams, (given)name, (boolean)shown, (float)opacity)	// https://developers.google.com/earth-engine/apidocs/map-addlayer
+    Map.addLayer(contour, {}, 'Nam contour', true, 0.6); // opacity
+
+    }
+
+  
+    // prepare the message for each layer and hold in the array
+    var msg = band + " layer added to Map" + 
+              "\nMax " + vizParams.max +
+              "\nMin " + vizParams.min;
+    messages.push(msg);
+  });
+  
+  // Print the messages in reverse order
+  messages.reverse().forEach(function(msg) {
+    print(msg);
+  });
+}
+

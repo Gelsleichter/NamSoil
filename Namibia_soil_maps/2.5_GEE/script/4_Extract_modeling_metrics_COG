@@ -1,0 +1,1540 @@
+////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                  ///   
+///            Extract and moddeling the covariates for Namibia Soil Maps            ///   
+///            Authors: Yuri Gelsleichter, Marina Coetzee                            /// 
+///            Jul 2025 - Jan 2026                                                   ///   
+///                                                                                  ///   
+////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/* 
+Note: this is quite a heavy process, if your browser freeze, just wait and it will keep going
+*/
+/////////////////////////////////////////////////////////////////////////////////////////
+
+
+print('Start scrip');
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load external module with the settings
+/////////////////////////////////////////////////////////////////////////////////////////
+var configMod = require('users/Namibia_map/Soil_properties:properties_settings/configurations_0_30');
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Select (uncomment) the soil property to be run
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Select the config key for the soil property
+/*
+var configKey = 'Silt_0_30';      
+var configKey = 'Silt_30_60';     
+var configKey = 'Silt_60_100';    
+var configKey = 'Sand_0_30';      
+var configKey = 'Sand_30_60';     
+var configKey = 'Sand_60_100';    
+var configKey = 'Clay_0_30';      
+var configKey = 'Clay_30_60';     
+var configKey = 'Clay_60_100';    
+var configKey = 'pH_0_30';        
+var configKey = 'pH_30_60';       
+var configKey = 'pH_60_100';      
+var configKey = 'EC_el25_0_30';   
+var configKey = 'EC_el25_30_60';  
+var configKey = 'EC_el25_60_100'; 
+var configKey = 'EC_elco_0_30';   
+var configKey = 'EC_elco_30_60';  
+var configKey = 'EC_elco_60_100'; 
+var configKey = 'BS_0_30';        
+var configKey = 'BS_30_60';       
+var configKey = 'BS_60_100';      
+var configKey = 'OC_0_30';        
+var configKey = 'OC_30_60';       
+var configKey = 'OC_60_100';      
+var configKey = 'BD_0_30';        
+var configKey = 'BD_30_60';       
+var configKey = 'BD_60_100';      
+var configKey = 'CEC_0_30';       
+var configKey = 'CEC_30_60';      
+var configKey = 'CEC_60_100';     
+var configKey = 'Ca_0_30';        
+var configKey = 'Ca_30_60';       
+var configKey = 'Ca_60_100';      
+var configKey = 'K_0_30';         
+var configKey = 'K_30_60';        
+var configKey = 'K_60_100';       
+var configKey = 'Mg_0_30';        
+var configKey = 'Mg_30_60';       
+var configKey = 'Mg_60_100';      
+var configKey = 'Na_0_30';        
+var configKey = 'Na_30_60';       
+var configKey = 'Na_60_100';      
+var configKey = 'N_0_30';         
+var configKey = 'N_30_60';        
+var configKey = 'N_60_100';       
+var configKey = 'P_0_30';         
+var configKey = 'P_30_60';        
+*/
+var configKey = 'P_60_100';       
+
+// Access the config key 
+var config = configMod.getConfiguration(configKey);
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Tunr on and off sections (plots)
+/////////////////////////////////////////////////////////////////////////////////////////
+var boot_thumbs_plots = 0;                  // 1 to enable thumb of average in the console
+var boot_avg_map_plot = 0;                  // 1 to enable the average map of bootstrapping in the map area
+var upper_lower_range_maps_plots = 0;       // 1 to enable the upper, lower and range maps in the map area
+var picp_ccc_cal_val_plots_client_side = 0; // 1 to enable the plot
+var RMSE_R2_min_max = 0;                    // 1 to enable 
+var RMSE_R2_average = 1;                    // 1 to enable 
+var RMSE_R2_all_boots = 0;                  // 1 to enable 
+
+/*
+ Info:
+    When the plot is enabled, it takes a large part of processing units and memory 
+    to send the info from the server (gee) to the client (browser), thus the competition
+    for resources slows down the process and commonly stops the processing.
+
+    If the plots are enabled, the number of boots (loops) must be small, like 20 - 30.
+    The boot maps (in the map area) are even heavier, so around 10 boots are recommended.
+    
+    Google earth engine is meant to run in the server-side mainly, and with heavy processing,
+    the display in the map area and in the console must be only the necessary.
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Get info from config
+/////////////////////////////////////////////////////////////////////////////////////////
+// Set the settings 
+var soil_prop_set = config.soil_prop_settings;
+var soilProperty = config.property;  
+var unity = config.unity;
+var soil_palette_col = config.palette;
+var soil_prop_min = config.min; 
+var soil_prop_max = config.max;
+var bands_sel = config.soil_prop_settings.bands_sel;
+
+// Check in console 
+// print('Configurations for ' + soilProperty, config);
+print('the Selected bands', bands_sel);                         // the selected bands
+print('Soil property (as configKey): ', configKey);             // the soil property (as configKey) 
+// print('Soil property (as in the dataset)', soilProperty);                        // the soil property (as the name in the table);  
+// print('Soil property and its feature collection', configKey, '\n', points_soil_property); 
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load points_soil_property as FeatureCollection
+/////////////////////////////////////////////////////////////////////////////////////////
+var nam_points = ee.FeatureCollection("projects/ee-geomap2748/assets/Namibia_ea_spline_all_properties_2025_03_03_null_0_30_60_100"); // '' as NA
+// var nam_points = ee.FeatureCollection("projects/ee-geomap2748/assets/Namibia_ea_spline_all_properties_2025_03_03_null_depths_0_30_60_100_fix"); // due '' as 'null', it goes as string
+// Select the soil property column from the data pool
+var points_soil_property_all = nam_points.select(soilProperty);
+// Map.addLayer(nam_points, [], soilProperty, false);
+
+// Filter null lines of the selected soil property
+// When selecting a column (with the current soil property), some lines are "null", and here they are filtered
+// var points_soil_property = points_soil_property_all.filter(ee.Filter.notNull([soilProperty])); // other way to filter
+var points_soil_property = points_soil_property_all.filter(ee.Filter.neq(soilProperty, null));
+// Map.addLayer(points_soil_property, [], 'Soil properties with filtered null '+soilProperty, false);
+
+// Check in console 
+// print('all columns nam_points', nam_points);                    // show all soil properties, all columns
+// print('all points of soil_property', points_soil_property_all); // show selected soil properties, one column
+// print('points_soil_property', points_soil_property);            // show selected properties, one column, and number of valid observations
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load assets
+/////////////////////////////////////////////////////////////////////////////////////////
+// 30m
+// var predictors_all = ee.Image("users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v25");
+// 90m
+var predictors_all = ee.Image("users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v27_90m");
+
+// Check in console 
+// print('Print predictors: all covariates names', predictors_all); 
+// print('Print predictors: all band names', predictors_all.bandNames()); 
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Label band names
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// ==== The band names are called from outside (another script) ==== //
+// ==== But here it can be overwritten for tuining, if necessary ==== //
+// ==== Remove the comments to use it /* open, */ close comments ==== //
+// Example of calling external script
+// var soil_prop_settings = require('users/Namibia_map/Soil_properties:properties_settings/Sand_0_30');
+// bands_sel = soil_prop_settings.bands_sel;
+
+/* open comment 
+// Apply selected
+var bands_sel = [
+                 "dem",
+                 //"tpi",
+                 "chili",
+                 //"landform",
+                 "topo_diver",
+                 "flow_dir",
+                 "flow_accumul",
+                 "landcover",
+                 //"hand",
+                 //"blue_w",
+                 //"green_w",
+                 "red_w",
+                 "nir_w",
+                 "swir1_w",
+                 "swir2_w",
+                 //"ndvi_w",
+                 //"savi_w",
+                 //"msavi_w",
+                 //"evi_w",
+                 "kndvi_w",
+                 //"blue_s",
+                 //"green_s",
+                 //"red_s",
+                 //"nir_s",
+                 "swir1_s",
+                 //"swir2_s",
+                 //"ndvi_s",
+                 //"savi_s",
+                 //"msavi_s",
+                 //"evi_s",
+                 "kndvi_s",
+                 //"curv_max",
+                 "river_dist",
+                 "flow_lend_d",
+                 "convex",
+                 //"geology",
+                 "pet",
+                 //"arid_ind",
+                 "landform_iwa",
+                 "namsoil_13",
+                 //"aspp",
+                 "aez",
+                 "veg_types",
+                 //"aez_n",
+                 //"cc",
+                 "Slope",
+                 //"Aspect",
+                 "Northness",
+                 "Eastness",
+                 "HorizontalCurvature",
+                 "VerticalCurvature",
+                 "kaolinite",
+                 //"calcite",
+                 "quartz",
+                 //"carbonate",
+                 //"mafic",
+                 "prec_wc2",
+                 "tavg_wc2",
+                 "geology_a",
+                 "flow_len_up",
+                 "carb_diff",
+                 //"clay_diff",
+                 "ferr_diff",
+                 //"iron",
+                 "rock_out"
+                 ];
+*/// close comment
+
+// In case of all bands, can be used
+// var bands = predictors.bandNames(); 
+
+// Select the bands to use
+var predictors = predictors_all.select(bands_sel);
+
+var bands = predictors.bandNames(); 
+
+// Check band names in console
+// print('Print selected band names as in bands', bands);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Sample the predictors to generate training data  
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// The class label is stored in the 'soilProperty' 
+var extracted_points = predictors.select(bands_sel).sampleRegions({ // https://developers.google.com/earth-engine/guides/classification#code-editor-javascript_2
+  collection: points_soil_property,
+  properties: [soilProperty],             // 'OC__0-30 cm' is one example of name in the training dataset column
+  scale: 90, // 30, 60, 90, 120
+  geometries: true                        // this will keep the coordinates
+});
+
+// print("extracted_points", extracted_points);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Initiate empty arrays to hold the outputs 
+/////////////////////////////////////////////////////////////////////////////////////////
+// Hold the metrics outputs inner loop, then bring outside loop to export
+var R2_cal_output = [];
+var R2_val_output = [];
+var RMSE_cal_output = [];
+var RMSE_val_output = [];
+
+// Model and raster predictions (inner loop), then bring outside loop to export
+var spatial_predictions = [];
+var seed_basket = [];
+// var model_basket = []; // can be uncommented here and other places, for consulting the
+
+// Hold the outputs for internal processing of the plots
+var observed_test_output = [];
+var predicted_test_output = [];
+var observed_train_output = [];
+var predicted_train_output = [];
+
+// Hold the outputs for var importance
+var var_importance_output = [];
+
+// Hold the outputs inner loop, then bring outside loop to export 
+var obs_test_data = ee.FeatureCollection([]);
+var obs_train_data = ee.FeatureCollection([]);
+var pred_test_data = ee.FeatureCollection([]);
+var pred_train_data = ee.FeatureCollection([]);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Functions to gather the obs_test, obs_train, pred_test, pred_train, and arrange to export
+/////////////////////////////////////////////////////////////////////////////////////////
+// Define a function to add the source of the data: obs_test, obs_train, pred_test, pred_train 
+var addSource = function(sourceStr) {
+  return function(feature) {
+    return feature.set({ source: sourceStr });
+  };
+};
+
+// Function to add coordinates and iteration values at each loop in the boot
+var addIterationValue = function(feature) {
+    var coords = feature.geometry().coordinates();
+    var lon = coords.get(0);
+    var lat = coords.get(1);
+  // Set the variables to be added in the train, test data
+  return feature.set({
+    longitude: lon,
+    latitude: lat,
+    a_iteration: i+1,           // iteration value
+    a_seed_value: seed_list[i]  // seed value
+  });
+};
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//// Initiate Bootstrapping in Loop mode
+/////////////////////////////////////////////////////////////////////////////////////////
+// Initiate the list with the random values generated above 
+// To increase number of iterations, just add more seeds
+var seed_list = [153, 309, 340, 182, 321, 309, 6, 213, 344, 86, 
+                 338, 242, 276, 100, 336, 258, 92, 116, 164, 27];
+
+// Loop `for` to iterate over the list to each element 
+for (var i = 0; i < seed_list.length; i++) {
+  // print('This is iterations number: ', i+1); // add 1 because in js starts with 0, like python
+  // print('This is seed value: ', seed_list[i]);
+
+// Prepare accuracy assessment   
+// Add a column of random uniforms to the extracted_poins dataset 
+//var withRandom = extracted_points.randomColumn('random');
+// var seed = 1904; // Seed for reproducibility 
+var seed = seed_list[i]; // Seed in bootstrap
+var withRandom = extracted_points.randomColumn('random', seed);
+
+// Storing the seeds in a list
+seed_basket.push(seed);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Split data for train, test
+/// Official documentation for the split with seed: 
+/// - https://developers.google.com/earth-engine/guides/classification#code-editor-javascript_2
+/// - https://developers.google.com/earth-engine/apidocs/ee-classifier-smilegradienttreeboost
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Reserve part of the data for testing
+var split = 0.8;  // Roughly 80% training, 20% testing.
+var trainingPartition = withRandom.filter(ee.Filter.lt('random', split)); // lt: less than
+var testingPartition = withRandom.filter(ee.Filter.gte('random', split)); // gte: greater or equal than
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Train RF model 
+/////////////////////////////////////////////////////////////////////////////////////////
+// ==== Calling band names from outside (another script) ==== //
+// rf_params = soil_prop_settings.rfParams;
+var rf_params = config.soil_prop_settings.rfParams;
+// print('rf_params', rf_params);
+
+/*
+// --- Parameters for Random forest model 
+// As the band selection the RF paramenters are called from ouside, but
+// Can be overwritten here by remove comments for tuning
+var rf_params = {
+  ntree: 250,       // Integer;                 The number of decision trees to create
+  mtry: 10,         // Integer, default: null;  The number of variables per split. If unspecified, uses the square root of the number of variables
+  nodesize: 4,      // Integer, default: 1;     Only create nodes whose training set contains at least this many points
+  sampsize: 0.65,   // Float,   default: 0.5;   The fraction of input to bag per tree
+  max_Nodes: 200,   // Integer, default: null;  The maximum number of leaf nodes in each tree. If unspecified, defaults to no limit
+  seed_: 0          // Integer, default: 0;     The randomization seed
+};
+*/
+
+// --- Trainning the RF model with 80% of data (trainingPartition)
+var trainedClassifier = ee.Classifier.smileRandomForest({ // :: https://developers.google.com/earth-engine/apidocs/ee-classifier-smilerandomforest
+  numberOfTrees: rf_params.ntree,
+  variablesPerSplit: rf_params.mtry,
+  minLeafPopulation: rf_params.nodesize,
+  bagFraction: rf_params.sampsize//,
+  //maxNodes: rf_params.max_Nodes, 
+  //seed: rf_params.seed_ 
+})
+// .setOutputMode('CLASSIFICATION') // default :: https://developers.google.com/earth-engine/apidocs/ee-classifier-setoutputmode
+.setOutputMode("REGRESSION")          // Set the model to perform regression
+// .setOutputMode('PROBABILITY')
+.train({
+  features: trainingPartition,        // Feature collection containing the training data
+  // classProperty: classProperty,
+  classProperty: soilProperty,        // Property to predict (e.g., carbon stock)
+  inputProperties: bands              // This call the names of the bands from the image, as in the USGS manual using 'bandNames()', also will not call the new added random column, for the split
+  });
+
+// put in the list outside of loop
+// model_basket.push(trainedClassifier);
+
+// Print RF classifier 
+// print('Check trainedClassifier', trainedClassifier);
+
+// Print explain() info about RF classifier 
+// print('RF explained', trainedClassifier.explain());
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Predict to obtain the imageR2_val_mean
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Predict over entire area (Namibia) with the trained model 
+// 'Predictors' is an image with the predictor variables (bands)
+// 'trainedClassifier' is a trained Random Forest regression model
+var predicted_raster_name = 'pred ' + soilProperty;
+// print('predicted_raster_name', predicted_raster_name);
+var predicted_Nam_soil_prop = predictors.classify(trainedClassifier, predicted_raster_name);      // This is suggested by the documentation :: https://developers.google.com/earth-engine/apidocs/ee-classifier-smilerandomforest      
+  //.rename('socPred')
+  //.round()      // Rounding the values, comment if your values are small
+  //.int16();     // Converting to 16-bit integer, comment if your values are small
+
+// Load study area of country shapefile 
+// var Nam = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/namibia_shp_buff_2km"); // imported shapefile buffer
+var Nam = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/National_boundary_Namibia"); // imported shapefile no buffer
+// Clip to study area
+predicted_Nam_soil_prop = predicted_Nam_soil_prop.clip(Nam);
+//predicted_Nam_soil_prop = predicted_Nam_soil_prop.clipToCollection(Nam);
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Get and hold variable importance
+/// https://www.researchgate.net/post/How-to-calculate-and-plot-the-feature-importance-of-the-input-dataset-of-a-random-forest-classification-within-Google-Earth-Engine-GEE
+/// https://gis.stackexchange.com/questions/427565/variable-importance-for-random-forest-classification-in-gee
+/////////////////////////////////////////////////////////////////////////////////////////
+var dict_featImportance = trainedClassifier.explain(); // Cast into a ee.Feature and a ee.FeatureCollection for exporting the importance as CSV
+var variable_importance = ee.Feature(null, ee.Dictionary(dict_featImportance).get('importance'))
+  .set('iteration', i+1)
+  .set('seed', seed_list[i]);
+var_importance_output.push(variable_importance);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Put predicted maps in a list
+/////////////////////////////////////////////////////////////////////////////////////////
+spatial_predictions.push(predicted_Nam_soil_prop);
+/////print('print predicted_Nam_SOC_train', predicted_Nam_SOC_train);
+/////print('print spatial_predictions', spatial_predictions);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Predict to obtain metrics
+/////////////////////////////////////////////////////////////////////////////////////////
+// Predict train data for calibration 
+var predicted_Nam_SOC_train = trainingPartition.classify(trainedClassifier); // This is NOT suggested by the documentation 
+// Predict test data for validation 
+var predicted_Nam_SOC_test = testingPartition.classify(trainedClassifier); // This is NOT suggested by the documentation 
+
+//////// Extract values from features; the output will be a list
+// Predicted values ('classification' is the correct name to put here)
+var predicted_from_train = predicted_Nam_SOC_train.aggregate_array('classification'); // if place OC__0-30 cm here, it will extract the observed values
+var predicted_from_test = predicted_Nam_SOC_test.aggregate_array('classification'); // if place OC__0-30 cm here, it will extract the observed values
+// Observed values
+// var observed_from_train = trainingPartition.aggregate_array('OC__0-30 cm');
+// var observed_from_test = testingPartition.aggregate_array('OC__0-30 cm');
+var observed_from_train = trainingPartition.aggregate_array(soilProperty);
+var observed_from_test = testingPartition.aggregate_array(soilProperty);
+
+// Run the function to add coordinates and iteration value and the source of data
+var testingPartition_map = testingPartition.map(addIterationValue).map(addSource('obs_test'));
+var trainingPartition_map = trainingPartition.map(addIterationValue).map(addSource('obs_train'));
+var predicted_Nam_SOC_test_map = predicted_Nam_SOC_test.map(addIterationValue).map(addSource('pred_test'));
+var predicted_Nam_SOC_train_map = predicted_Nam_SOC_train.map(addIterationValue).map(addSource('pred_train'));
+  
+// Send to list and hold the results
+obs_test_data = obs_test_data.merge(testingPartition_map);
+obs_train_data = obs_train_data.merge(trainingPartition_map);
+pred_test_data = pred_test_data.merge(predicted_Nam_SOC_test_map);
+pred_train_data = pred_train_data.merge(predicted_Nam_SOC_train_map);
+
+
+////////////////////////////////////////////////////////////////////////////
+/// Metrics calibration
+////////////////////////////////////////////////////////////////////////////
+//// RMSE
+// Defining the vectors as Earth Engine arrays
+var observed_array_cal = ee.Array(observed_from_train); // calibration
+var predicted_array_cal = ee.Array(predicted_from_train); // calibration
+// Performing subtraction
+var error = observed_array_cal.subtract(predicted_array_cal); // better call residuals
+// print('The error: ', error);
+// Raising each element of "error" to the power of 2 using pow
+var squaredError = error.pow(2);
+// var squaredError = error.multiply(error); // other option
+// Calculating the mean of the elements in squaredError
+var meanSquaredError = squaredError.reduce(ee.Reducer.mean(), [0]); // For a one-dimensional array, the dimension is 0
+// Taking the square root of the mean squared error to get the RMSE
+var rmse_cal = meanSquaredError.sqrt();
+// This output generate an array with a single element, but we need to convert to a number (float)
+// to compose the average from the iterations later after the loop
+rmse_cal = ee.Number(rmse_cal.get([0])).float();
+// Printing the RMSE value
+// print('The RMSE Calibration is: ', rmse_cal);
+
+//// R2
+// Convert arrays to lists
+var list1_cal = ee.List(observed_from_train);
+var list2_cal = ee.List(predicted_from_train);
+// Combine the lists into a list of pairs
+var pairedList = list1_cal.zip(list2_cal);
+// Calculate Pearson's correlation
+var corr = pairedList.reduce(ee.Reducer.pearsonsCorrelation());
+// Since GEE sometimes mixes JavaScript and Earth Engine objects, 
+// we need to ensure we're working with an ee.Dictionary
+var corrDict = ee.Dictionary(corr);
+// Now we can use ee.Dictionary methods to extract values
+var correlationValue = corrDict.get('correlation');
+var pValue = corrDict.get('p-value');
+// // print('Correlation:', correlationValue);
+// // print('P-value:', pValue);
+// Calculate the coefficient of determination (R²)
+var coef_det_cal = ee.Number(correlationValue).pow(2);
+// Print the result
+// print('The Calibration R² is: ', coef_det_cal);
+
+
+/////// Validation - compact without comments
+//// RMSE
+var observed_array_val = ee.Array(observed_from_test); // validation
+var predicted_array_val = ee.Array(predicted_from_test); // validation
+var rmse_val = observed_array_val.subtract(predicted_array_val)
+.pow(2)
+.reduce(ee.Reducer.mean(), [0])
+.sqrt();
+rmse_val = ee.Number(rmse_val.get([0])).float();
+// print('The RMSE Validation is: ', rmse_val);
+
+//// R2 
+var list1_val = ee.List(observed_from_test);
+var list2_val = ee.List(predicted_from_test);
+var pairedList = list1_val.zip(list2_val);
+var corr = pairedList.reduce(ee.Reducer.pearsonsCorrelation());
+var corrDict = ee.Dictionary(corr);
+var correlationValue = corrDict.get('correlation');
+var pValue = corrDict.get('p-value');
+var coef_det_val = ee.Number(correlationValue).pow(2);
+//print('The Validation R² is: ', coef_det_val);
+
+// Hold the outputs in the designated arrays 
+R2_cal_output.push(coef_det_cal);
+R2_val_output.push(coef_det_val);
+RMSE_cal_output.push(rmse_cal);
+RMSE_val_output.push(rmse_val);
+
+// Storing the outputs in a list
+observed_train_output.push(observed_from_train);
+predicted_train_output.push(predicted_from_train);
+observed_test_output.push(observed_from_test);
+predicted_test_output.push(predicted_from_test);
+
+} // close bootstrapping loop
+
+// Print the result of each iteration 
+// print('R2_cal_output:', R2_cal_output);
+// print('R2_val_output:', R2_val_output);
+// print('RMSE_cal_output:', RMSE_cal_output);
+// print('RMSE_val_output:', RMSE_val_output); 
+
+// print('Type of Object with ObjectType R2_val_output:', ee.Algorithms.ObjectType(R2_val_output));
+// print('Type of Object with ObjectType RMSE_val_output:', ee.Algorithms.ObjectType(RMSE_val_output));
+
+if (RMSE_R2_all_boots === 1){
+// Agregate the outputs in a dictionary 
+var results_boot_metrics = {
+ // model_basket: model_basket,
+ seed_basket: seed_basket,
+ R2_cal_output: R2_cal_output,
+ R2_val_output: R2_val_output,
+ RMSE_cal_output: RMSE_cal_output,
+ RMSE_val_output: RMSE_val_output
+};
+print('Results metrics of all boots', results_boot_metrics);
+}
+///////////////////////////////////////////////////////////////////////////////////////////
+/// Explanation of server and client sides, and synchronous and asynchronous
+/// https://developers.google.com/earth-engine/guides/debugging#aside
+///////////////////////////////////////////////////////////////////////////////////////////
+
+// - If data comes from the server as Earth Engine objects it cannot be processed 
+//   directly in the client-side, convert it to plain JavaScript objects/arrays.
+// - The methods like getInfo() (synchronous) or evaluate() (asynchronous) can 
+//   be used to perform this conversion.
+// - Once converted, you can process the data using standard client-side JavaScript functions 
+//   without relying on Earth Engine methods. And this is the case for this calculations.
+// - Synchronous:
+//   A synchronous operation blocks the execution of code until the operation is complete. In other words, the program waits for the task to finish before continuing with the next instructions.
+//   Example: The getInfo() function in Earth Engine, which returns the data immediately but may block the flow if the data is large or takes a long time to load.
+// - Asynchronous:
+//   In an asynchronous operation, the code does not block while waiting for the operation to finish. It continues executing subsequent instructions and, when the operation is completed, a function (callback) is called to handle the result.
+//   Example: The evaluate() method in Earth Engine, which processes data conversion without interrupting the main code flow, using callbacks to return the data when ready.
+
+///////////////////////////////////////////////////////////////////////////////////////////
+/// Check the R2 and RMSE
+///////////////////////////////////////////////////////////////////////////////////////////
+
+if (RMSE_R2_min_max === 1){
+// Convert outputs to ee.List (if not already)
+// Assume RMSE_val_output and R2_val_output are already defined in your EE script.
+var rmseList = ee.List(RMSE_val_output);
+var r2List = ee.List(R2_val_output);
+
+// print("Index position, min and max value of RMSE and R2" + 
+//       "\nRMSE min index position:" + rmseList.indexOf(rmseList.reduce(ee.Reducer.min())) + 
+//       "\nRMSE min value:" + rmseList.reduce(ee.Reducer.min()) + 
+//       "\nRMSE max index position :" + r2List.indexOf(r2List.reduce(ee.Reducer.max())) + 
+//       "\nRMSE max value :" + r2List.reduce(ee.Reducer.max())
+//       );
+print("Index position, min and max value of RMSE and R2:"); 
+print("RMSE min index position:", rmseList.indexOf(rmseList.reduce(ee.Reducer.min())));
+print("RMSE min value:", rmseList.reduce(ee.Reducer.min()));
+print("R2 max index position :", r2List.indexOf(r2List.reduce(ee.Reducer.max())));
+print("R2 max value :", r2List.reduce(ee.Reducer.max()));
+}
+
+
+///////////////////////////////////////////////////////
+// CALLBACK FOR PICP CALCULATION AT CLIENT-SIDE END  //
+///////////////////////////////////////////////////////
+
+// =============================================================== //
+// Calculating PICP (Prediction Interval Coverage Probability)     //
+// Based on: https://www.r-bloggers.com/2023/08/calculating-       //
+// the-prediction-interval-coverage-probability-picp/              //
+// =============================================================== //
+
+// Since the export of the gee is manually only, it does not make sense to generate plots for 
+// each boot (loop), thus only the model with best performance (lowest RMSE, and highest R2)
+// is designed to be plotted. 
+// Although the train and test data is set to be exported and further calculation will be done locally.
+
+// The PICP will be calculated based on the best model within the bootstrapping
+// Based on the lowest RMSE combined with highest R2
+// It the lowest RMSE and highest R2 happend in the same loop iteration the scrip goes automatically
+
+// Shortcut to skip the plots
+if (picp_ccc_cal_val_plots_client_side === 1){
+
+// Define the manual index outside the function.
+var manual_index = 3; // change for the boot sequence (iteration) suitable
+
+// RMSE_val_output and R2_val_output 
+var RMSE_val_output_list = ee.List(RMSE_val_output);
+var R2_val_output_list = ee.List(R2_val_output);
+
+// Print the result of each iteration 
+// print('R2_cal_output:', R2_cal_output);
+// print('R2_val_output:', R2_val_output);
+// print('RMSE_cal_output:', RMSE_cal_output);
+// print('RMSE_val_output:', RMSE_val_output); 
+
+// ============================
+// Decision on index selection
+// ============================
+
+RMSE_val_output_list.evaluate(function(rmseArray, err) {
+  if (err) {
+    print('Error evaluating RMSE_val_output_list:', err);
+    return;
+  }
+  
+  // Get the lowest RMSE and its index.
+  var lowest_rmse = Math.min.apply(null, rmseArray);
+  var lowest_rmse_index = rmseArray.indexOf(lowest_rmse);
+  // print('Lowest RMSE:', lowest_rmse);                  // print all together
+  // print('Index of lowest RMSE:', lowest_rmse_index);   // print all together
+  
+  R2_val_output_list.evaluate(function(r2Array, err) {
+    if (err) {
+      print('Error evaluating R2_val_output_list:', err);
+      return;
+    }
+    
+    // Get the highest R2 and its index.
+    var highest_R2 = Math.max.apply(null, r2Array);
+    var highest_R2_index = r2Array.indexOf(highest_R2);
+    // print('Highest R2:', highest_R2);                  // print all together
+    // print('Index of highest R2:', highest_R2_index);   // print all together
+    print('Coefficients of the best model(s)' + '\n' + 
+      '\nLowest RMSE: ' + lowest_rmse.toFixed(3) +    // round in 3 digits, or Math.round(lowest_rmse*1000)/1000 
+      '\nHighest R2: '  + highest_R2.toFixed(3) +     // round in 3 digits
+      '\nIndex of lowest RMSE: ' + lowest_rmse_index +
+      '\nIndex of highest R2: '  + highest_R2_index
+      );
+    
+    ////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    // For testing purposes, you might override the evaluated indices:
+    // lowest_rmse_index = 1;
+    // highest_R2_index = 2;
+    ////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
+    // If the evaluated indices are equal, use the automated index.
+    if (lowest_rmse_index === highest_R2_index) {
+      var automated_index = lowest_rmse_index;
+      print("Indices match: using automated index as: " + automated_index);
+      var obs_out_test_auto = ee.List(observed_test_output[automated_index]);
+      var pred_out_test_auto = ee.List(predicted_test_output[automated_index]);
+      var obs_out_train_auto = ee.List(observed_train_output[automated_index]);
+      var pred_out_train_auto = ee.List(predicted_train_output[automated_index]); 
+      
+      // Run processing data function for automated index selected
+      processDat(obs_out_test_auto, 
+                 pred_out_test_auto, 
+                 obs_out_train_auto,
+                 pred_out_train_auto);
+                 
+    } else {
+      // Otherwise, override the indices by using the manual index.
+      print("-----------------------------------------------------------" + 
+         "\nThe RMSE and R2 indices are different!" + 
+         "\nManual verification of the best model for PICP is required." +
+         "\nOverriding values by using manual index (" + manual_index + ")" + 
+         "\n===========================================================");
+            
+      // In case the indices are different, popup warning
+      // Create a panel to simulate a warning popup.
+      var popup = ui.Panel({
+        style: {
+          backgroundColor: 'white',
+          border: '2px solid black',
+          padding: '10px 20px',
+          // Adjust the position as needed.
+          position: 'top-center',
+          width: '300px'
+        }
+      });
+      // Create a title for the warning.
+      var title = ui.Label({
+        value: 'Warning!',
+        style: {fontWeight: 'bold', fontSize: '18px', margin: '0 0 8px 0'}
+      });
+      // Create a warning message.
+      var message = ui.Label({
+        value: "\nThe RMSE and R2 indices are different!" + 
+               "\nManually set the loop iteration" + 
+               "\nat the line with 'var manual_index = 1;'" +
+               "\nwhere you find the lowest RMSE with highest R2" + 
+               "\nin the 'Results' object in the console" + 
+               "\nthen run it again.",
+        style: {margin: '0 0 8px 0'}
+      });
+      // Create a button to close the popup.
+      var closeButton = ui.Button({
+        label: 'Close',
+        onClick: function() {
+          // Remove the popup from the interface using Map.remove,
+          // since it was added to the Map.
+          Map.remove(popup);
+        }
+      });
+      // Add the elements (title, message, and button) to the panel.
+      popup.add(title);
+      popup.add(message);
+      popup.add(closeButton);
+      // Add the popup to the interface on the Map.
+      Map.add(popup);
+      // popup end
+            
+      // Computing the dat with manual selection or observed and predicted
+      var obs_out_test_manual = ee.List(observed_test_output[manual_index]);
+      var pred_out_test_manual = ee.List(predicted_test_output[manual_index]);
+      var obs_out_train_manual = ee.List(observed_train_output[manual_index]);
+      var pred_out_train_manual = ee.List(predicted_train_output[manual_index]); 
+      
+      // Run processing data function for manual index selected
+      processDat(obs_out_test_manual, 
+                 pred_out_test_manual,
+                 obs_out_train_manual,
+                 pred_out_train_manual);     
+    }
+  });
+});
+
+
+// ===============================================================================
+// Function to Process Data: Rebuild "dat" from vector and continue processing
+// ===============================================================================
+function processDat(obs_out_test, 
+                    pred_out_test, 
+                    obs_out_train,
+                    pred_out_train) {
+  ee.Dictionary({ 'obs_out_test': obs_out_test, 
+                  'pred_out_test': pred_out_test, 
+                  'obs_out_train': obs_out_train, 
+                  'pred_out_train': pred_out_train}).evaluate(function(data, err) {
+    if (err) {
+      print('Error evaluating dictionary:', err);
+      return;
+    }
+    var obs_out_test_client = data.obs_out_test;
+    var pred_out_test_client = data.pred_out_test;
+    var obs_out_train_client = data.obs_out_train;
+    var pred_out_train_client = data.pred_out_train;
+    
+    // Rebuild the vector "dat" by merging arrays for train
+    var datTrain = obs_out_train_client.map(function(value, index) {
+      return {
+        obs_out_train: value,
+        pred_out_train: pred_out_train_client[index]
+      };
+    });
+
+    // Rebuild the vector "dat" by merging arrays for test
+    var dat = obs_out_test_client.map(function(value, index) { // could be datTest, but in the picp is only dat and was kept like this
+      return {
+        obs_out_test: value,
+        pred_out_test: pred_out_test_client[index]
+      };
+    });
+    // print('data frame "dat" create by the vectors of test:', dat);
+    // print('data frame "datTrain" create by the vectors of train:', datTrain);
+    
+    ///////////////////////////////////////////////////////////////////////////////////
+    /// Plot Obs vs Pred Calibration (as USGS template) (server-side)
+    ///////////////////////////////////////////////////////////////////////////////////
+    
+    // Convert the data to a FeatureCollection
+    var featuresTrain = datTrain.map(function(item) {
+      // Each item is converted into Feature without geometry (null) and keep the other properties
+      return ee.Feature(null, {
+        'observed_train': item.obs_out_train,
+        'predicted_train': item.pred_out_train
+      });
+    });
+    
+    var fcTrain = ee.FeatureCollection(featuresTrain);
+    
+    var chartTrain = ui.Chart.feature.byFeature(fcTrain, 'observed_train', 'predicted_train')
+      .setChartType('ScatterChart')
+      .setOptions({
+        width: 300,      // define the width of the plot
+        height: 300,     // define height of the plot
+        title: 'Predicted vs Observed - Calibration \n' + soilProperty + ' ' + unity + ' (cs)',
+        hAxis: {'title': 'observed ' + soilProperty + ' ' + unity},
+        vAxis: {'title': 'predicted ' + soilProperty + ' ' + unity},
+        pointSize: 3,
+        trendlines: {
+          0: {showR2: true, visibleInLegend: true}
+          //1: {showR2: true, visibleInLegend: true} // there is no reason to use two lines
+        }
+    });
+    
+    print(chartTrain);
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    /// Plot Obs vs Pred Validation (as USGS template) (client-side)
+    ///////////////////////////////////////////////////////////////////////////////////
+    // Convert the data to a FeatureCollection
+    var featuresTest = dat.map(function(item) {
+      // Each item is converted into Feature without geometry (null) and keep the other properties
+      return ee.Feature(null, {
+        'observed_test': item.obs_out_test,
+        'predicted_test': item.pred_out_test
+      });
+    });
+    
+    var fcTest = ee.FeatureCollection(featuresTest);
+    
+    // Create chart, print "Predicted_test vs Observed_test - Validation", data from the FeatureCollection
+    var chartTest = ui.Chart.feature.byFeature(fcTest, 'observed_test', 'predicted_test')
+      .setChartType('ScatterChart')
+      .setOptions({
+        width: 300,      // define the width of the plot
+        height: 300,     // define height of the plot
+        title: 'Predicted vs Observed - Validation  \n' + soilProperty + ' ' + unity + ' (cs)',
+        hAxis: {'title': 'observed ' + soilProperty + ' ' + unity},
+        vAxis: {'title': 'predicted ' + soilProperty + ' ' + unity},
+        pointSize: 3,
+        trendlines: {
+          0: {showR2: true, visibleInLegend: true}
+        }
+    });
+    
+    print(chartTest);
+  
+
+    ////////////////////////////////////////////////////////
+    // Part 1: PICP Calculation and Associated Metrics    //
+    ////////////////////////////////////////////////////////
+    
+    // 1.1 Calculate residuals: residual = observed - predicted.
+    var residuals = dat.map(function(d) {
+      return d.obs_out_test - d.pred_out_test;
+    });
+    // print('Residuals:', residuals);
+    
+    // Calculate the average of the residuals.
+    var sumRes = residuals.reduce(function(a, b) { return a + b; }, 0);
+    var meanRes = sumRes / residuals.length;
+    
+    // Compute the sum of squared differences.
+    var sqDiff = residuals.map(function(r) {
+      return Math.pow(r - meanRes, 2);
+    });
+    var sumSqDiff = sqDiff.reduce(function(a, b) { return a + b; }, 0);
+    
+    // 1.2 Calculate the standard deviation (using sample standard deviation, n - 1).
+    var variance = sumSqDiff / (residuals.length - 1);
+    var standev = Math.sqrt(variance);
+    // print("Standard Deviation of Residuals:", standev);
+    
+    // 1.3 Quantile series (using qnorm values obtained in R).
+    var qp = [
+      2.5758293035489, 2.24140272760495, 1.95996398454005, 1.64485362695147, 
+      1.2815515655446, 0.841621233572914, 0.524400512708041, 0.2533471031358,
+      0.125661346855074, 0.0627067779432138
+    ];
+    
+    // 1.4 Build matrices: each will be an array of arrays with dimensions [n x m].
+    var n = dat.length;   // number of data points.
+    var m = qp.length;    // number of quantiles.
+    
+    var vMat = [];  // Error matrix (standev * qp)
+    var uMat = [];  // Upper limits: pred_out_test + vMat.
+    var lMat = [];  // Lower limits: pred_out_test - vMat.
+    var bMat = [];  // Binary matrix: 1 if observed is within limits, else 0.
+    
+    for (var i = 0; i < n; i++) {
+      var rowV = [];
+      var rowU = [];
+      var rowL = [];
+      var rowB = [];
+      for (var j = 0; j < m; j++) {
+        var errValue = standev * qp[j];
+        rowV.push(errValue);
+        var upper = dat[i].pred_out_test + errValue;
+        var lower = dat[i].pred_out_test - errValue;
+        rowU.push(upper);
+        rowL.push(lower);
+        var inside = (dat[i].obs_out_test >= lower && dat[i].obs_out_test <= upper) ? 1 : 0;
+        rowB.push(inside);
+      }
+      vMat.push(rowV);
+      uMat.push(rowU);
+      lMat.push(rowL);
+      bMat.push(rowB);
+    }
+    
+    // 1.5 Calculate PICP: for each quantile, compute the percentage from the binary matrix.
+    var picp = [];
+    for (var j = 0; j < m; j++) {
+      var colSum = 0;
+      for (var i = 0; i < n; i++) {
+        colSum += bMat[i][j];
+      }
+      picp.push(colSum / n * 100);
+    }
+    
+    // 1.6 Confidence levels vector (as in R)
+    var cl = [99, 97.5, 95, 90, 80, 60, 40, 20, 10, 5];
+    
+    // 1.7 Organize the results into an array of objects.
+    var results = [];
+    for (var j = 0; j < m; j++) {
+      results.push({ picp: picp[j], cl: cl[j] });
+    }
+    
+    // print("Results (PICP and Confidence Levels):", results);
+    
+    /////////////////////////////////////////////////
+    // Part 2: Calculation of Lin's Concordance CCC  //
+    /////////////////////////////////////////////////
+    
+    var x = results.map(function(item) { return item.cl; });
+    var y = results.map(function(item) { return item.picp; });
+    var N = x.length;
+    var sumX = 0, sumY = 0;
+    for (var i = 0; i < N; i++) {
+      sumX += x[i];
+      sumY += y[i];
+    }
+    var meanX = sumX / N;
+    var meanY = sumY / N;
+    
+    var sumSqX = 0, sumSqY = 0, sumXY = 0;
+    for (var i = 0; i < N; i++) {
+      sumSqX += Math.pow(x[i] - meanX, 2);
+      sumSqY += Math.pow(y[i] - meanY, 2);
+      sumXY += (x[i] - meanX) * (y[i] - meanY);
+    }
+    var varX = sumSqX / (N - 1);
+    var varY = sumSqY / (N - 1);
+    var covXY = sumXY / (N - 1);
+    
+    var cccValue = 2 * covXY / (varX + varY + Math.pow(meanX - meanY, 2));
+    print("Lin's CCC:", cccValue);
+    
+    /////////////////////////////////////////////////
+    // Part 3: Plotting the Results                //
+    /////////////////////////////////////////////////
+    
+    var fcResults = ee.FeatureCollection(results.map(function(item) {
+      return ee.Feature(null, {
+        cl: item.cl,
+        picp: item.picp,
+        group: "0_PICP"  // Actual data points.
+      });
+    }));
+    
+    var numPoints = 100;
+    var linePoints = [];
+    for (var i = 0; i < numPoints; i++){
+      var val = i * (105 / (numPoints - 1));
+      linePoints.push({ cl: val, picp: val, group: "1_1to1" });
+    }
+    var fcLine = ee.FeatureCollection(linePoints.map(function(item) {
+      return ee.Feature(null, item);
+    }));
+    
+    var fcAll = fcResults.merge(fcLine);
+    // print('Merged FeatureCollection (fcAll):', fcAll);
+    
+    var chart = ui.Chart.feature.groups(fcAll, 'cl', 'picp', 'group')
+      .setChartType('ScatterChart')
+      .setOptions({
+        width: 300,      // define the width of the plot
+        height: 300,     // define height of the plot
+        title: 'PICP and Confidence Level  \n' + soilProperty + ' ' + unity + ' (cs)',
+        hAxis: { title: 'Confidence Level', viewWindow: {min: 0, max: 105} },
+        vAxis: { title: 'PICP', viewWindow: {min: 0, max: 105} },
+        series: {
+          0: { color: 'purple', lineWidth: 1, pointSize: 0 },
+          1: { color: 'blue', lineWidth: 0, pointSize: 3 }
+        }
+      });
+    print(chart);
+    
+    var cccLabel = ui.Label("CCC = " + cccValue.toFixed(2));
+    cccLabel.style().set({ fontWeight: 'bold', fontSize: '16px', margin: '10px' });
+    print(cccLabel);
+    
+  });
+}// ending plot code
+} // endiong on-off plots
+// For step by step view of PICP calculation see the script: picp
+
+///////////////////////////////////////////////////////
+// CALLBACK FOR PICP CALCULATION AT CLIENT-SIDE END  //
+///////////////////////////////////////////////////////
+
+
+// =========================================================
+// Compute the mean from output list (server-side)
+// =========================================================
+// Re-convert to list (necessary because gee mix objects with javascript)
+var R2_cal_list = ee.List(R2_cal_output);
+var R2_val_list = ee.List(R2_val_output);
+var RMSE_cal_list = ee.List(RMSE_cal_output);
+var RMSE_val_list = ee.List(RMSE_val_output);
+var R2_cal_mean = R2_cal_list.reduce(ee.Reducer.mean());
+var R2_val_mean = R2_val_list.reduce(ee.Reducer.mean());
+var RMSE_cal_mean = RMSE_cal_list.reduce(ee.Reducer.mean());
+var RMSE_val_mean = RMSE_val_list.reduce(ee.Reducer.mean());
+// Print final averaged values
+// print('Print mean across bootstrp iterations'); // (server-side)
+// print('R2 cal mean', R2_cal_mean);
+// print('R2 val mean', R2_val_mean);
+// print('RMSE cal mean', RMSE_cal_mean);
+// print('RMSE val mean', RMSE_val_mean);
+
+if (RMSE_R2_average === 1){
+print("Metrics (boot average)",
+     "\nCalibration",  
+     "\nRMSE_cal_mean", ee.Number(RMSE_cal_mean).format('%.3f'), // or round with: .multiply(1000).round().divide(1000)
+     "\nR2_cal_mean", ee.Number(R2_cal_mean).format('%.3f'),  
+     "\nValidation", 
+     "\nRMSE_val_mean", ee.Number(RMSE_val_mean).format('%.3f'),  
+     "\nR2_val_mean", ee.Number(R2_val_mean).format('%.3f') 
+     );
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+//// Export results (metrics)
+///////////////////////////////////////////////////////////////////////////////////////
+// Define export scale
+// var export_scale = 90;
+var export_scale = 5000;      // Temporary coarse resolution to optimize storage space, set desired resolution
+
+// Drive folder output
+var drive_folder_output = 'v2_earth_engine_Nam_modeling_output_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_ scale_' + export_scale + 'm';
+// File name export
+var export_path_file_name_gdrive_mt_it = 'Results_metrics_per_iteration_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive'; // does not accept '-' and  ' ' space, then apply replace
+var export_path_file_name_gdrive_mt_avg = 'Results_metrics_averaged_iterations_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive'; 
+var export_path_file_name_gdrive_datasets = 'Datasets_train_test_obs_pred_iterations_seeds_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive'; 
+
+// Results with each iteration
+// Fun to combine the list elements 
+var combinarListas = function(index) {
+  return ee.Feature(null, { // null because no geometry is needed
+    // old 'randomNumbers_seeds': ee.List(randomNumbers).get(index),
+    'randomNumbers_seeds': ee.List(seed_list).get(index),
+    'R2_cal_output': ee.List(R2_cal_output).get(index),
+    'R2_val_output': ee.List(R2_val_output).get(index),
+    'RMSE_cal_output': ee.List(RMSE_cal_output).get(index),
+    'RMSE_val_output': ee.List(RMSE_val_output).get(index)
+  });
+};
+
+// Get sequence base on the length of randomNumbers
+var indices = ee.List.sequence(0, ee.List(seed_list).size().subtract(1));
+
+// Map the fun over the indexes 
+var fcResultsPerIteration = ee.FeatureCollection(indices.map(combinarListas));
+
+// Export to Google Drive
+Export.table.toDrive({
+  collection: fcResultsPerIteration,
+  description: export_path_file_name_gdrive_mt_it, 
+  folder: drive_folder_output,
+  fileFormat: 'CSV'
+});
+// print('FeatureCollection Combinado:', fcResultsPerIteration);
+
+//////////////////////////////////////////////////////////////////////
+// Averaged results
+// Create a dictionary with results
+var results = ee.Dictionary({
+  'R2_cal_mean': R2_cal_mean,
+  'R2_val_mean': R2_val_mean,
+  'RMSE_cal_mean': RMSE_cal_mean,
+  'RMSE_val_mean': RMSE_val_mean
+});
+
+// Convert the dictionary to a FeatureCollection
+var featureCollectionResults = ee.FeatureCollection([
+  ee.Feature(null, results)
+]);
+
+// Export to Google Drive
+Export.table.toDrive({
+  collection: featureCollectionResults,
+  selectors: ['R2_cal_mean', 'RMSE_cal_mean', 'R2_val_mean', 'RMSE_val_mean'],  // col names :: https://gis.stackexchange.com/questions/397977/exporting-table-without-geo-and-systemindex-in-google-earth-engine
+  // selectors: ['R2_cal_mean', 'R2_val_mean', 'RMSE_cal_mean', 'RMSE_val_mean'],
+  description: export_path_file_name_gdrive_mt_avg, 
+  folder: drive_folder_output,
+  fileFormat: 'CSV'
+});
+// print('Results:', results);
+
+
+//////////////////////////////////////////////////////////////////////
+// Aggregate all data obs, pred, test and train in one dataset
+//////////////////////////////////////////////////////////////////////
+var aggregateFC = obs_test_data
+           .merge(obs_train_data)
+           .merge(pred_test_data)
+           .merge(pred_train_data);
+
+// a_iteration: i+1,           // iteration value
+// a_seed_value: seed_list[i]  // seed value
+
+// Export the feature as csv
+Export.table.toDrive({
+  collection: aggregateFC,
+  selectors: ['a_seed_value', 'a_iteration', 'source', soilProperty, bands_sel, 'longitude', 'latitude', '.geo', 'system:index'], // '.geo' is a feature from gee, and has both coordinates in one column, and the 'random' col is used in the split, 
+  description: export_path_file_name_gdrive_datasets,
+  folder: drive_folder_output, 
+  //fileNamePrefix: 'Datasets_train_test_obs_pred_iterations_seeds_', // already in the string
+  fileFormat: 'CSV'
+});
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Map.addLayer elements
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Define the background as satellite as default
+Map.setOptions('SATELLITE'); // other options ROADMAP, TERRAIN, HYBRID
+
+// Center map view
+//Map.centerObject(Nam, 6); // object and zoom level
+Map.centerObject(ee.Geometry.Point(25, -23), 6); // coordinates and zoom level
+
+// Add predicted raster to map view
+// Map.addLayer(predicted_Nam_soil_prop, {min: 0.1, max: 2, palette:['green', 'cyan', 'yellow', 'magenta']}, 'Soil property: ' + soilProperty + ' Map', true);
+// Map.addLayer(spatial_predictions[3], {min: 0.1, max: 1.1, palette:['green', 'cyan', 'yellow', 'magenta']}, 'Soil property: ' + soilProperty + ' Map', true);
+
+// Loop `for` to iterate over the list to each image and add to the map 
+//for (var i = 0; i < spatial_predictions.length; i++) {
+//  // print('This is spatial_predictions: ' + i, spatial_predictions[i]); // for console
+//  Map.addLayer(spatial_predictions[i], {min: 0.1, max: 1.1, 
+//    palette:['green', 'cyan', 'yellow', 'magenta']}, 'Soil property: ' + soilProperty + ' Map iteration ' + i , false);
+//}
+/*
+print('All the spatial_predictions: ', spatial_predictions);
+print('Type of Object with ObjectType spatial_predictions:', ee.Algorithms.ObjectType(spatial_predictions));
+*/
+
+// Define style for the 'shapefile'
+var contour = Nam.style({
+  color: '#0a0a0a',      // Line color (grey #585858)
+  width: 1.5,            // Line thickness
+  fillColor: '00000000'  // Fill color transparent 
+});
+// Add Nam shape to map view 
+// Map.addLayer(eeObject, visParams, (given)name, (boolean)shown, (float)opacity)	// https://developers.google.com/earth-engine/apidocs/map-addlayer
+Map.addLayer(contour, {}, 'Nam contour', true, 0.6); // opacity
+
+// Add soil data points to map view 
+//////////// from the last boot
+//Map.addLayer(trainingPartition, {color: 'blue'}, 'trainingPartition points ' + soilProperty, false, 0.6); // can be set to false
+//Map.addLayer(testingPartition, {color: 'magenta'}, 'testingPartition points ' + soilProperty, false, 0.6); // can be set to false
+
+// All points 
+//Map.addLayer(points_soil_property, {color: '#96eb37'}, 'Points ' + soilProperty, false, 0.4); // can be set to false
+
+///////////////////////////////////////////////////////////////////////////////////////
+//// Calculate the Uncertainties
+///////////////////////////////////////////////////////////////////////////////////////
+
+// Convert from a list to image (ImageCollection)
+//var spatial_predictions_img = ee.Image(spatial_predictions);
+var spatial_predictions_img_coll = ee.ImageCollection(spatial_predictions);
+// print("spatial_predictions", spatial_predictions);
+// print("spatial_predictions_img_coll", spatial_predictions_img_coll);
+// print("spatial_predictions typeof", typeof spatial_predictions);
+// print("spatial_predictions_img_coll typeof", typeof spatial_predictions_img_coll);
+
+
+
+// get mean and sdMap, combining the reducers will speed up the results // https://developers.google.com/earth-engine/guides/reducers_intro
+// ave <- terra::app(stacked_rasters, fun = mean, na.rm = TRUE)
+// sdMap <- terra::app(stacked_rasters, fun = sd, na.rm = TRUE)
+
+var boot_stats = spatial_predictions_img_coll.reduce(
+  ee.Reducer.mean().combine({
+    reducer2: ee.Reducer.stdDev(),
+    sharedInputs: true
+  })
+);
+// print('boot_stats', boot_stats);
+
+// Select the bands
+var boot_avg = boot_stats.select('pred ' + soilProperty + '_mean').rename(soilProperty + '_mean');  // with ImageCollection
+var boot_stdDev = boot_stats.select('pred ' + soilProperty + '_stdDev');                            // with ImageCollection
+// var boot_avg = boot_stats.select('mean');                                                        // with Image
+// var boot_stdDev = boot_stats.select('stdDev');                                                   // with Image
+
+// get se
+// calculate standard error based on confidence interval (limit is 0.95)
+// se = sdMap * qnorm(0.95)
+var boot_se = boot_stdDev.multiply(1.644854);
+
+// get upper
+// upper = ave + se;
+var upper = boot_avg.add(boot_se).rename(soilProperty + '_upper');
+// get lower
+// lower = ave - se;
+var lower = boot_avg.subtract(boot_se).rename(soilProperty + '_lower');
+// get range
+// range = upper - lower;
+var range = upper.subtract(lower).rename(soilProperty + '_range');
+
+// round by 2 digits with:
+boot_avg = boot_avg.multiply(100).round().divide(100);
+upper    = upper.multiply(100).round().divide(100);
+lower    = lower.multiply(100).round().divide(100);
+range    = range.multiply(100).round().divide(100);
+// How it works
+// the .round(), does not take arguments, then,
+// for example, take a value of 1.23456789, multiplying by 1000 will result in 1234.56789, then round: 1234, then divide by 1000: 1.234.
+
+var boot_uncertainties = boot_avg
+                         .addBands(upper)
+                         .addBands(lower)
+                         .addBands(range)
+                         ;
+
+// The mean is float and other double, and this causes problems to export
+// must convert to one, best float, because it occupies less space than double
+boot_uncertainties = boot_uncertainties.toFloat();
+boot_avg = boot_avg.toFloat();
+
+// print('boot_uncertainties', boot_uncertainties);
+
+// Add a map of avg to area map
+if (boot_avg_map_plot === 1) {
+//Map.addLayer(boot_avg, {min: soil_prop_min, max: 2, palette: ['cyan', 'blue', 'green', 'red']}, 'Mean ' + soilProperty + unity, true);
+Map.addLayer(boot_avg, {min: soil_prop_min, max: soil_prop_max, palette: soil_palette_col}, 'Mean ' + soilProperty + unity, true);
+}
+// Add a map of upper_lower_range_maps plots to area map
+if (upper_lower_range_maps_plots === 1) {
+Map.addLayer(upper, {min: soil_prop_min, max: soil_prop_max, palette: ['cyan', 'blue', 'green', 'red']}, 'Upper ' + soilProperty + unity, true);
+Map.addLayer(lower, {min: soil_prop_min, max: soil_prop_max, palette: ['cyan', 'blue', 'green', 'red']}, 'Lower ' + soilProperty + unity, true);
+Map.addLayer(range, {min: soil_prop_min, max: soil_prop_max, palette: ['cyan', 'blue', 'green', 'red']}, 'Range ' + soilProperty + unity, true);
+}
+// Plot a thumbnail of avg in the console
+if (boot_thumbs_plots === 1) {
+// Define a box around Namibia
+var namibiaBox = ee.Geometry.Rectangle([11.5, -29.0, 25.0, -17.0]);
+
+//boot_avg layer 
+// Define colors and max min params
+var boot_avgColored = boot_avg.visualize({
+  min: soil_prop_min,
+  max: soil_prop_max,
+  palette: soil_palette_col // ['cyan', 'blue', 'green', 'red']
+});
+// Generate the thumbnail
+print(soilProperty + ' ' + unity + '\nAverage');
+print(ui.Thumbnail({
+  image: boot_avgColored,
+  params: {
+    dimensions: '256x256',
+    region: namibiaBox,
+    format: 'png'
+  },
+  style: {height: '300px', width: '300px'}
+}));
+
+//upper layer 
+var upperColored = upper.visualize({
+  min: soil_prop_min,
+  max: soil_prop_max,
+  palette: ['cyan', 'blue', 'green', 'red']
+});
+print(soilProperty + ' ' + unity + '\nUpper bound');
+print(ui.Thumbnail({
+  image: upperColored,
+  params: {
+    dimensions: '256x256',
+    region: namibiaBox,
+    format: 'png'
+  },
+  style: {height: '300px', width: '300px'}
+}));
+
+//lower layer 
+var lowerColored = lower.visualize({
+  min: soil_prop_min,
+  max: soil_prop_max,
+  palette: ['cyan', 'blue', 'green', 'red']
+});
+print(soilProperty + ' ' + unity + '\nLower bound');
+print(ui.Thumbnail({
+  image: lowerColored,
+  params: {
+    dimensions: '256x256',
+    region: namibiaBox,
+    format: 'png'
+  },
+  style: {height: '300px', width: '300px'}
+}));
+
+//range layer 
+var rangeColored = range.visualize({
+  min: soil_prop_min,
+  max: soil_prop_max,
+  palette: ['cyan', 'blue', 'green', 'red']
+});
+print(soilProperty + ' ' + unity + '\nRange (upper - lower)');
+print(ui.Thumbnail({
+  image: rangeColored,
+  params: {
+    dimensions: '256x256',
+    region: namibiaBox,
+    format: 'png'
+  },
+  style: {height: '300px', width: '300px'}
+}));
+
+} // end skip if
+
+//Add to the map area
+//Map.addLayer(upperColored, {}, 'Upper SOC colored', false);
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Export predicted image as Cloud Optimized GeoTIFF (COG) by setting the "cloudOptimized"
+/////////////////////////////////////////////////////////////////////////////////////////
+// File name export
+// var export_path_file_name_gdrive_img = 'boot_maps_uncert_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive'; // does not accept '-' and  ' ' space, then apply replace
+var export_path_file_name_gdrive_img = 'boot_avg_map_uncert_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive' + '_scale_' + export_scale + 'm'; // does not accept '-' and  ' ' space, then apply replace
+// print('export_path_file_name_gdrive_img', export_path_file_name_gdrive_img);
+
+/*// **** Export predicted map covering entire country to drive **** //*/
+Export.image.toDrive({
+ image: boot_uncertainties,
+ //image: boot_avg,
+ description: export_path_file_name_gdrive_img,
+ folder: drive_folder_output,
+ region: Nam,
+ scale: export_scale, // 30, 60, 90 m
+ crs: 'EPSG:4326',
+ maxPixels: 1e13,
+ priority: 200, // The priority of the task within the project. Higher priority tasks are scheduled sooner. Must be an integer between 0 and 9999. Defaults to 100. 
+ fileFormat: 'GeoTIFF',
+ //fileFormat: 'PNG'//, does not accept png here
+ formatOptions: {
+   cloudOptimized: true // it was giving errors, then comment; now solved
+ }, 
+ skipEmptyTiles: true, // test to see how it goes
+ //fileDimensions: [16640, 16640] // still tiny bit outside 65*256
+ fileDimensions: [17920, 17920] // increase the export tile size (fit the export in one tile)
+});
+
+
+
+/* 
+// Export to assets
+var export_path_file_name_asset = 'boot_avg_map_uncert_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_asset' + '_scale_' + export_scale + 'm'; 
+var export_asset_id = 'users/Namibia_map/output/boot_avg_Nam_soil_map_boot_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_image_asset' + '_scale_' + export_scale + 'm';
+
+// Export predicted map covering entire country as asset 
+// Set the export "scale" and "crs" parameters
+Export.image.toAsset({
+  image: boot_uncertainties,
+  description: export_path_file_name_asset,
+  assetId: export_asset_id, 
+  region: Nam,
+  scale: export_scale, // 30, 60, 90 m
+  crs: 'EPSG:4326',
+  priority: 200, // The priority of the task within the project. Higher priority tasks are scheduled sooner. Must be an integer between 0 and 9999. Defaults to 100. 
+  maxPixels: 1e13
+  // crs: dem_crs       // Error: Projection: The CRS of a map projection could not be parsed. (Error code: 3)
+  // scale: dem_scale   // does not catch, then you have to state as 30
+});
+*/
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Get band stats to place max color and legend (very heavy)
+/////////////////////////////////////////////////////////////////////////////////////////
+// var soil_prop_pred_Min = (spatial_predictions.select(boot_avg).reduceRegion({
+//   reducer: ee.Reducer.min(),
+//   scale: 30, 
+//   crs: 'EPSG:4326',
+//   bestEffort: true,
+//   tileScale: 5
+// }));
+// var soil_prop_pred_Max = (spatial_predictions.select(boot_avg).reduceRegion({
+//   reducer: ee.Reducer.max(),
+//   scale: 30, 
+//   crs: 'EPSG:4326',
+//   bestEffort: true,
+//   tileScale: 5
+// }));
+// var soil_prop_pred_Min_Max = (spatial_predictions.select(boot_avg).reduceRegion({
+//   reducer: ee.Reducer.minMax(),
+//   scale: 30, 
+//   crs: 'EPSG:4326',
+//   bestEffort: true,
+//   tileScale: 5
+// }));
+// 
+// print('soil_prop_pred_Min', soil_prop_pred_Min);
+// print('soil_prop_pred_Max', soil_prop_pred_Max);
+// print('soil_prop_pred_Min_Max', soil_prop_pred_Min_Max);
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Export var importance, source:  
+/// https://www.researchgate.net/post/How-to-calculate-and-plot-the-feature-importance-of-the-input-dataset-of-a-random-forest-classification-within-Google-Earth-Engine-GEE
+/// https://gis.stackexchange.com/questions/427565/variable-importance-for-random-forest-classification-in-gee
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Cast into a ee.Feature and a ee.FeatureCollection for exporting the importance as CSV
+var variable_importance_fc = ee.FeatureCollection(var_importance_output);
+// Name to export as var with property name
+var variable_importance_soil_prop = 'variable_importance_' + soilProperty.replace(/ /g, '_').replace(/-/g, '_') + '_numb_of_boots_' + seed_list.length + '_export_gdrive';
+
+// Export the FeatureCollection as CSV
+Export.table.toDrive({
+  collection: variable_importance_fc,
+  description: variable_importance_soil_prop,
+  folder: drive_folder_output,
+  fileFormat: 'CSV'
+});
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Plot legend :: https://gis.stackexchange.com/a/422014/178680 
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// var vis = {min: 0, max: 2, palette: soil_palette_col}; // manually
+var vis = {min: soil_prop_min, max: soil_prop_max, palette: soil_palette_col}; 
+
+var nSteps = 10; 
+// Creates a color bar thumbnail image for use in legend from the given color palette
+function makeColorBarParams(soil_palette_col) {
+  return {
+    bbox: [0, 0, nSteps, 0.1],
+    dimensions: '100x10',
+    format: 'png',
+    min: 0,
+    max: nSteps,
+    palette: soil_palette_col,
+  };
+}
+
+// Create the colour bar for the legend
+var colorBar = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select(0).int(),
+  params: makeColorBarParams(vis.palette),
+  style: {stretch: 'horizontal', margin: '0px 8px', maxHeight: '24px'},
+});
+
+// Create a panel with three numbers for the legend
+var legendLabels = ui.Panel({
+  widgets: [
+    ui.Label(vis.min, {margin: '4px 8px'}),
+    ui.Label(
+        ((vis.max-vis.min) / 2+vis.min),
+        {margin: '4px 8px', textAlign: 'center', stretch: 'horizontal'}),
+    ui.Label(vis.max, {margin: '4px 8px'})
+  ],
+  layout: ui.Panel.Layout.flow('horizontal')
+});
+
+
+// Automated legend title label
+// var value_leg_title = 'Soil Map of ' + soilProperty + ' ' + unity;
+var value_leg_title = 'Soil Map of ' + configKey + ' cm ' + unity;
+
+// Legend title
+var legendTitle = ui.Label({
+  //value: 'Soil carbon Namibia 0-30 cm (%)', // manual legend title label
+  value: value_leg_title,
+  style: {fontWeight: 'bold'}
+});
+
+// Add the legendPanel to the map
+// var legendPanel = ui.Panel([legendTitle, colorBar, legendLabels]);
+var legendPanel = ui.Panel([legendTitle, colorBar, legendLabels], null, {position: 'top-left'}); // bottom-right, top-right, top-left, none, bottom, top
+Map.add(legendPanel);
+
+print('End scrip');
+
+////////////////////////////////
+/////* --- end script --- */////
+////////////////////////////////

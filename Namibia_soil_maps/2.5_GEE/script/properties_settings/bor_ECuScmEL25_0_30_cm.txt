@@ -1,0 +1,24 @@
+exports.bands_sel = [
+  "dem",
+  "topo_diver",
+  "blue_w",
+  "green_w",
+  "red_w",
+  "blue_s",
+  "green_s",
+  "red_s",
+  "arid_ind",
+  "aspp",
+  "Slope",
+  "prec_wc2",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 1,
+  nodesize: 2,
+  sampsize: 0.33
+  //max_Nodes: 120,
+  //seed_: 0
+};

@@ -1,0 +1,30 @@
+exports.bands_sel = [
+  "dem",
+  "tpi",
+  "chili",
+  "blue_w",
+  "nir_w",
+  "evi_w",
+  "green_s",
+  "nir_s",
+  "evi_s",
+  "flow_lend_d",
+  "arid_ind",
+  "aspp",
+  "aez",
+  "prec_wc2",
+  "tavg_wc2",
+  "geology_a",
+  "carb_diff",
+  "iron",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 1,
+  nodesize: 3,
+  sampsize: 0.73
+  //max_Nodes: 120,
+  //seed_: 0
+};

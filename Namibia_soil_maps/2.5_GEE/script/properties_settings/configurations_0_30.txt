@@ -1,0 +1,511 @@
+/////////////////////////////////////////////////////////////////////////////////////////
+// Define all settings in a object
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Load color palettes package; manual and more examples // https://github.com/gee-community/ee-palettes#palettes
+var palettes = require('users/gena/packages:palettes'); 
+
+// Fun to call each with lazy loading
+exports.getConfiguration = function(configKey) {
+  
+// Define selectedConfig for each soil property
+var selectedConfig;
+
+  switch (configKey) {
+    case 'Sand_0_30': // use this name in the key
+      selectedConfig = { 
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Sand_0_30'), 
+      property: 'Sand53umpct_0_30_cm',
+      unity: '(%)',
+      palette: ['f7fcf0', '00441b'],
+      min: 15, // values of the soil property to be used in the scale
+      max: 100
+    };
+    break;
+    case 'Sand_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Sand_30_60'),
+      property: 'Sand53umpct_30_60_cm',
+      unity: '(%)',
+      palette: ['f7fcf0', '00441b'],
+      min: 15,
+      max: 100
+    };
+    break;
+    case 'Sand_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Sand_60_100'),
+      property: 'Sand53umpct_60_100_cm',
+      unity: '(%)',
+      palette: ['f7fcf0', '00441b'],
+      min: 15,
+      max: 100
+    };
+    break;
+    case 'Silt_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Silt_0_30'), 
+      property: 'Silt253umpct_0_30_cm',
+      unity: '(%)',
+      //palette: ['fff7fb', '49006a'],
+      palette: palettes.colorbrewer.PuOr[11].slice(1,11), // colorbrewer can be 3,4,5,6,7,8,9,10,11
+      min: 1, //0.5,
+      max: 30 // 55
+    };
+    break;
+    case 'Silt_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Silt_30_60'),
+      property: 'Silt253umpct_30_60_cm',
+      unity: '(%)',
+      palette: ['fff7fb', '49006a'],
+      min: 0.5,
+      max: 55
+    };
+    break;
+    case 'Silt_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Silt_60_100'),
+      property: 'Silt253umpct_60_100_cm',
+      unity: '(%)',
+      palette: ['fff7fb', '49006a'],
+      min: 0.5,
+      max: 55
+    };
+    break;
+    case 'Clay_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Clay_0_30'), 
+      property: 'Clay2umpct_0_30_cm',
+      unity: '(%)',
+      //palette: ['fff7fb', '49006a'],
+      palette: palettes.colorbrewer.PuOr[11].slice(1,11), // colorbrewer can be 3,4,5,6,7,8,9,10,11
+      min: 1, //0.5,
+      max: 30 // 55
+    };
+    break;
+    case 'Clay_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Clay_30_60'),
+      property: 'Clay2umpct_30_60_cm',
+      unity: '(%)',
+      palette: ['fff7fb', '49006a'],
+      min: 0.5,
+      max: 55
+    };
+    break;
+    case 'Clay_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Clay_60_100'),
+      property: 'Clay2umpct_60_100_cm',
+      unity: '(%)',
+      palette: ['fff7fb', '49006a'],
+      min: 0.5,
+      max: 55
+    };
+    break;
+    case 'pH_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/pH_0_30'), 
+      property: 'pHwater_0_30_cm',
+      unity: '',
+      //palette: ['yellow', '08306b'],
+      palette: palettes.colorbrewer.RdYlGn[9],
+      min: 3.3,
+      max: 10
+    };
+    break;
+    case 'pH_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/pH_30_60'),
+      property: 'pHwater_30_60_cm',
+      unity: '',
+      //palette: ['yellow', '08306b'],
+      palette: palettes.colorbrewer.RdYlGn[9],
+      min: 3.3,
+      max: 10
+    };
+    break;
+    case 'pH_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/pH_60_100'),
+      property: 'pHwater_60_100_cm',
+      unity: '',
+      //palette: ['yellow', '08306b'],
+      palette: palettes.colorbrewer.RdYlGn[9],
+      min: 3.3,
+      max: 10
+    };
+    break;
+    case 'EC_el25_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_el25_0_30'), 
+      property: 'ECuScmEL25_0_30_cm',
+      unity: '(µS/cm)',
+      //palette: ['ffffe5', 'magenta'],
+      palette: palettes.colorbrewer.RdYlGn[9].reverse(),
+      min: 0,
+      max: 150
+    };
+    break;
+    case 'EC_el25_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_el25_30_60'),
+      property: 'ECuScmEL25_30_60_cm',
+      unity: '(µS/cm)',
+      palette: ['ffffe5', 'yellow', 'magenta'],
+      min: 0,
+      max: 150
+    };
+    break;
+    case 'EC_el25_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_el25_60_100'),
+      property: 'ECuScmEL25_60_100_cm',
+      unity: '(µS/cm)',
+      palette: ['ffffe5', 'yellow', 'magenta'],
+      min: 0,
+      max: 150
+    };
+    break;
+    case 'EC_elco_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_elco_0_30'), 
+      property: 'ECuScmELCO_0_30_cm',
+      unity: '(µS/cm)',
+      //palette: ['ffffe5', 'magenta'],
+      palette: palettes.colorbrewer.RdYlGn[9].reverse(),
+      min: 0,
+      max: 3500
+    };
+    break;
+    case 'EC_elco_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_elco_30_60'),
+      property: 'ECuScmELCO_30_60_cm',
+      unity: '(µS/cm)',
+      palette: ['ffffe5', 'yellow', 'magenta'],
+      min: 0,
+      max: 3500
+    };
+    break;
+    case 'EC_elco_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/EC_elco_60_100'),
+      property: 'ECuScmELCO_60_100_cm',
+      unity: '(µS/cm)',
+      palette: ['ffffe5', 'yellow', 'magenta'],
+      min: 0,
+      max: 3500
+    };
+    break;
+    case 'BS_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BS_0_30'), 
+      property: 'BSpct_0_30_cm',
+      unity: '(%)',
+      //palette: ['f7f4f9', '67001f'],
+      palette: palettes.matplotlib.magma[7],
+      min: 83,
+      max: 100
+    };
+    break;
+    case 'BS_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BS_30_60'),
+      property: 'BSpct_30_60_cm',
+      unity: '(%)',
+      palette: ['f7f4f9', '67001f'],
+      min: 83,
+      max: 100
+    };
+    break;
+    case 'BS_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BS_60_100'),
+      property: 'BSpct_60_100_cm',
+      unity: '(%)',
+      palette: ['f7f4f9', '67001f'],
+      min: 83,
+      max: 100
+    };
+    break;
+    case 'OC_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/OC_0_30'), 
+      property: 'OCpct_0_30_cm',
+      unity: '(%)',
+      //palette: ['ffffe5', '662506'],
+      palette: palettes.colorbrewer.BrBG[11].reverse().slice(6,11), // this pallet can be 3,4,5,6,7,8,9,10,11
+      min: 0.1, // 0
+      max: 1.1 // 2
+    };
+    break;
+    case 'OC_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/OC_30_60'),
+      property: 'OCpct_30_60_cm',
+      unity: '(%)',
+      palette: ['ffffe5', '662506'],
+      min: 0,
+      max: 2
+    };
+    break;
+    case 'OC_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/OC_60_100'),
+      property: 'OCpct_60_100_cm',
+      unity: '(%)',
+      palette: ['ffffe5', '662506'],
+      min: 0,
+      max: 2
+    };
+    break;
+    case 'BD_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BD_0_30'), 
+      property: 'BDkgdm3_0_30_cm',
+      unity: '(kg/dm3)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 2
+    };
+    break;
+    case 'BD_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BD_30_60'),
+      property: 'BDkgdm3_30_60_cm',
+      unity: '(kg/dm3)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 2
+    };
+    break;
+    case 'BD_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/BD_60_100'),
+      property: 'BDkgdm3_60_100_cm',
+      unity: '(kg/dm3)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 2
+    };
+    break;
+    case 'CEC_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/CEC_0_30'), 
+      property: 'CECcmolkg_0_30_cm',
+      unity: '(cmol/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 1,
+      max: 20
+    };
+    break;
+    case 'CEC_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/CEC_30_60'),
+      property: 'CECcmolkg_30_60_cm',
+      unity: '(cmol/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 1,
+      max: 20
+    };
+    break;
+    case 'CEC_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/CEC_60_100'),
+      property: 'CECcmolkg_60_100_cm',
+      unity: '(cmol/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 1,
+      max: 20
+    };
+    break;
+    case 'Ca_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Ca_0_30'), 
+      property: 'Camgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 3000
+    };
+    break;
+    case 'Ca_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Ca_30_60'),
+      property: 'Camgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 3000
+    };
+    break;
+    case 'Ca_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Ca_60_100'),
+      property: 'Camgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 3000
+    };
+    break;
+    case 'K_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/K_0_30'), 
+      property: 'Kmgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 50,
+      max: 200
+    };
+    break;
+    case 'K_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/K_30_60'),
+      property: 'Kmgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 50,
+      max: 200
+    };
+    break;
+    case 'K_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/K_60_100'),
+      property: 'Kmgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 50,
+      max: 200
+    };
+    break;
+    case 'Mg_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Mg_0_30'), 
+      property: 'Mgmgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 300
+    };
+    break;
+    case 'Mg_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Mg_30_60'),
+      property: 'Mgmgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 300
+    };
+    break;
+    case 'Mg_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Mg_60_100'),
+      property: 'Mgmgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 300
+    };
+    break;
+    case 'Na_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Na_0_30'), 
+      property: 'Namgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 90
+    };
+    break;
+    case 'Na_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Na_30_60'),
+      property: 'Namgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 90
+    };
+    break;
+    case 'Na_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/Na_60_100'),
+      property: 'Namgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 90
+    };
+    break;
+    case 'N_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/N_0_30'), 
+      property: 'Nmgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 100,
+      max: 800
+    };
+    break;
+    case 'N_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/N_30_60'),
+      property: 'Nmgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 100,
+      max: 800
+    };
+    break;
+    case 'N_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/N_60_100'),
+      property: 'Nmgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 100,
+      max: 800
+    };
+    break;
+    case 'P_0_30': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/P_0_30'), 
+      property: 'Pmgkg_0_30_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 6
+    };
+    break;
+    case 'P_30_60': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/P_30_60'),
+      property: 'Pmgkg_30_60_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 6
+    };
+    break;
+    case 'P_60_100': 
+      selectedConfig = {
+      soil_prop_settings: require('users/Namibia_map/SOC_map:properties_settings/P_60_100'),
+      property: 'Pmgkg_60_100_cm',
+      unity: '(mg/kg)',
+      palette: ['f7f4f9', '67001f'],
+      min: 0,
+      max: 6
+    };
+    break;
+
+  default:
+    print("Configuration key not found: " + configKey);
+    selectedConfig = null;
+    break;
+}
+  return selectedConfig;
+};

@@ -1,0 +1,50 @@
+////////////////////////////////////////////////////////////////////////////////////////
+///                                                                                  ///   
+///            Export regression matrix to be used in tunnig paramenter in R         ///   
+///            Authors: Yuri Gelsleichter, Marina Coetzee                            /// 
+///            Jun 2025 - Jan 2026                                                   ///   
+///                                                                                  ///   
+////////////////////////////////////////////////////////////////////////////////////////
+
+/* 
+Note: this is quite a heavy process, if your browser freeze, just wait and it will keep going
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load points_soil_property as FeatureCollection
+/////////////////////////////////////////////////////////////////////////////////////////
+// var nam_points = ee.FeatureCollection("projects/ee-geomap2748/assets/Namibia_ea_spline_all_properties_2025_03_03_null_0_30_60_100");
+var nam_points = ee.FeatureCollection("projects/ee-geomap2748/assets/Namibia_ea_spline_all_properties_2025_03_03_null_depths_0_30_60_100_fix");
+print('Print nam_points', nam_points); 
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/// Load assets
+/////////////////////////////////////////////////////////////////////////////////////////
+// 90m
+var predictors_all = ee.Image("users/Namibia_map/generated_covariates/all_predictors_bbox_epsg_4326_buff_2km_v27_90m");
+
+// Check in console 
+// print('Print predictors: all covariates names', predictors_all); 
+// print('Print predictors: all band names', predictors_all.bandNames()); 
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Sample the predictors to generate training data  
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// The class label is stored in the 'soilProperty' 
+var extracted_points = predictors_all.sampleRegions({ // https://developers.google.com/earth-engine/guides/classification#code-editor-javascript_2
+  collection: nam_points,
+  //properties: [soilProperty],             // 'OC__0-30 cm' is one example of name in the training dataset column
+  //scale: 90, // 30, 60, 90, 120
+  scale: 5000,      // Temporary coarse resolution to optimize storage space, set desired resolution
+  geometries: true                        // this will keep the coordinates
+});
+
+print("extracted_points", extracted_points);
+
+// Export the FeatureCollection
+Export.table.toDrive({
+  collection: extracted_points,
+  description: 'extracted_points_Nam_0_30_60_100_cm',
+  fileFormat: 'CSV'
+});

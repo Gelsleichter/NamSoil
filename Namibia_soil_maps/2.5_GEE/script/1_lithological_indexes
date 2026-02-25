@@ -1,0 +1,206 @@
+////////////////////////////////////////////////////////////////////////////////
+/* 
+Covariates preparation for Namibia 
+Authors: Yuri Gelsleichter, Marina Coetzee
+Oct 2024 - Jan 2026
+
+Code adapted from the tutorial of Amirhossein Ahrari: YouTube: https://www.youtube.com/@amirhosseinahrarigee
+Source: https://github.com/AmirhosseinAhrari/GoogleEarthEngine/blob/3f432a9df06c3e8c022919e545789d6aaaf5b9a0/00067_aster_lithology
+Scientific reference for indexes: https://doi.org/10.1016/j.oregeorev.2018.04.014
+*/
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+/* 
+CONFIGURATION: Update this with your Earth Engine user ID before running
+To store as Legacy assets use the local-part of you email acocunt, for <john.doe@gmail.com>: 
+var user_ID = 'john.doe';  (For example); and for Cloud assest, use the project name 
+Note: this is quite a heavy process, if your browser freeze, just wait and it will keep going
+*/
+var user_ID = 'YOUR_USER_ID';  // ← Change this once
+////////////////////////////////////////////////////////////////////////////////
+
+
+// Load shape
+var bbox = ee.FeatureCollection("users/Namibia_map/uploaded_covariates/namibia_shp_buff_2km"); // imported shapefile
+
+Map.centerObject(bbox, 6);
+
+var aster = ee.ImageCollection("ASTER/AST_L1T_003")
+.filterBounds(bbox)
+//.filter(ee.Filter.calendarRange(2010, 2024, 'year')) // did not change the artifacts
+//.filter(ee.Filter.lt('CLOUDCOVER', 8)) // to decrease the cloud cover percentage, must increase the time range
+//.filter(ee.Filter.calendarRange(5, 10, 'month')) // decrease the range create wholes
+.filter(ee.Filter.lt('CLOUDCOVER', 40))
+.filter(ee.Filter.calendarRange(4, 11, 'month'))
+.mean(); // switch back to mean, and it removed the artifacts.
+//.median(); // originally was .mean();, switch to .median();
+// For the 'Aster images' CLOUDCOVER:8 and calendarRange: 5-10 worked well
+// But for the 'Aster corrected' it generated missing pixels in the output, so 
+// the limits on the filters had to be extended: 
+// CLOUDCOVER:40 and calendarRange: 4-11 worked, but
+// CLOUDCOVER:30 and calendarRange: 4-11 NOT worked, later can test other combinations
+
+// print(aster);
+
+// Map.addLayer(aster.clip(bbox),[],'Aster', false); 
+
+////////////////////////////////////////////////////////////////
+// Simple atmosferic correction using "Dark Object Subtraction"
+function dos(img){
+  
+  var ms = img.select('B0[1-9]', 'B3N'); // Band 3, has a differente name: B3N
+  var tir = img.select('B1[0-4]');
+  
+  // Get the minimum
+  var dark_object = ms.reduceRegion({
+    reducer: ee.Reducer.min(), 
+    geometry: bbox, 
+    bestEffort: true, // speed processing (default: false) https://developers.google.com/earth-engine/apidocs/ee-image-reduceregion
+    tileScale: 2,     // speed processing (default: 1), 2 was enough for export (38 minutes), and 4 was good to disply the images
+    // scale: 3000 
+    scale: 90
+    });
+  
+  // Get the multispectral (ms) bands names
+  var bands = ms.bandNames();
+  
+  // Perform the subtraction for each band
+  var corrected = bands.map(function(band_name){
+    var do_val = ee.Number(dark_object.get(band_name));
+    var corrected = ms.select([band_name]).subtract(do_val);
+    return corrected;
+    });
+    
+  // Return the corrected ms bands and add the Tir bandas
+  return ee.ImageCollection(corrected).toBands().addBands(tir);
+  
+  }
+
+//////////////// Choose input, corrected or raw
+var aster_corrected = dos(aster); // to use the dos corrected Aster images
+// var aster_corrected = aster; // to use the raw Aster images
+
+print('Aster band-names', aster_corrected.bandNames());
+print('aster_corrected', aster_corrected);
+// print('bbox', bbox); // just to see the console moving
+
+// Function to calculate the indexes
+// For the Aster corrected
+function lithology(img, index){
+  
+  var kli = img.expression('(b4/b5)*(b8/b6)',
+  {'b4': img.select('2_B04'), 'b5': img.select('3_B05'), 'b6': img.select('4_B06'), 'b8': img.select('6_B08')}).rename('kaolinite');
+  
+  var ali = img.expression('(b7/b5)*(b7/b8)',
+  {'b5': img.select('3_B05'), 'b7': img.select('5_B07'), 'b8': img.select('6_B08')}).rename('alunite');
+  
+  var cli = img.expression('(b6/b8)*(b9/b8)',
+  {'b6': img.select('4_B06'), 'b8': img.select('6_B08'), 'b9': img.select('7_B09')}).rename('calcite');
+  
+  var qi = img.expression('(b11 * b11)/(b10 * b12)', 
+  {'b10': img.select('B10'), 'b11': img.select('B11'), 'b12': img.select('B12')}).rename('quartz');
+  
+  var ci = img.expression('b13/b14', 
+  {'b13': img.select('B13'), 'b14': img.select('B14')}).rename('carbonate');
+  
+  var mi = img.expression('b12/b13', 
+  {'b12': img.select('B12'), 'b13': img.select('B13')}).rename('mafic');
+  
+  return ee.Image(ee.Algorithms.If(index === 'kaolinite', kli, 
+  ee.Algorithms.If(index === 'alunite', ali, 
+  ee.Algorithms.If(index === 'calcite', cli, 
+  ee.Algorithms.If(index === 'quartz', qi, 
+  ee.Algorithms.If(index === 'carbonate', ci, 
+  ee.Algorithms.If(index === 'mafic', mi)))))));
+  
+  }
+  
+// For raw Aster
+/*
+  function lithology(img, index){
+  
+  var kli = img.expression('(b4/b5)*(b8/b6)',
+  {'b4': img.select('B04'), 'b5': img.select('B05'), 'b6': img.select('B06'), 'b8': img.select('B08')}).rename('kaolinite');
+  
+  var ali = img.expression('(b7/b5)*(b7/b8)',
+  {'b5': img.select('B05'), 'b7': img.select('B07'), 'b8': img.select('B08')}).rename('alunite');
+  
+  var cli = img.expression('(b6/b8)*(b9/b8)',
+  {'b6': img.select('B06'), 'b8': img.select('B08'), 'b9': img.select('B09')}).rename('calcite');
+  
+  var qi = img.expression('(b11 * b11)/(b10 * b12)', 
+  {'b10': img.select('B10'), 'b11': img.select('B11'), 'b12': img.select('B12')}).rename('quartz');
+  
+  var ci = img.expression('b13/b14', 
+  {'b13': img.select('B13'), 'b14': img.select('B14')}).rename('carbonate');
+  
+  var mi = img.expression('b12/b13', 
+  {'b12': img.select('B12'), 'b13': img.select('B13')}).rename('mafic');
+  
+  return ee.Image(ee.Algorithms.If(index === 'kaolinite', kli, 
+  ee.Algorithms.If(index === 'alunite', ali, 
+  ee.Algorithms.If(index === 'calcite', cli, 
+  ee.Algorithms.If(index === 'quartz', qi, 
+  ee.Algorithms.If(index === 'carbonate', ci, 
+  ee.Algorithms.If(index === 'mafic', mi)))))));
+  
+  }
+*/
+
+//Map.addLayer(aster_corrected.clip(bbox),[],'Aster corrected', true);
+
+var kaolinite = lithology(aster_corrected, 'kaolinite');
+var alunite = lithology(aster_corrected, 'alunite');
+var calcite = lithology(aster_corrected, 'calcite');
+var quartz = lithology(aster_corrected, 'quartz');
+var carbonate = lithology(aster_corrected, 'carbonate');
+var mafic = lithology(aster_corrected, 'mafic');
+
+
+/* 
+// Define the viz param
+var vizParams = {
+  min: 0.5,  // Min values in the vis
+  max: 1.2,  // Max values in the vis
+  palette: ['blue', 'green', 'red']  // Color pallet
+};
+var vizParams2 = {min: 0.8, max: 1.2, palette: ['blue', 'green', 'red']};
+var vizParams3 = {min: 0.5, max: 1, palette: ['blue', 'green', 'red']};
+var kcqVisParam = {"opacity":1,"bands":["kaolinite","calcite","quartz"],"min":0.5,"max":1.2,"gamma":1};
+
+Map.addLayer(kaolinite.clip(bbox), vizParams, 'kaolinite', false);  // min: 0.5, max: 1.2  not ok  
+Map.addLayer(alunite.clip(bbox), vizParams, 'alunite', false);      // min: 0.5, max: 1.2  not ok  
+Map.addLayer(calcite.clip(bbox), vizParams, 'calcite', false);      // min: 0.5, max: 1.2  not ok  
+Map.addLayer(quartz.clip(bbox), vizParams2, 'quartz', false);       // min: 0.8, max: 1.2  ok
+Map.addLayer(carbonate.clip(bbox), vizParams2, 'carbonate', false); // min: 0.8, max: 1.2  ok
+Map.addLayer(mafic.clip(bbox), vizParams3, 'mafic', false);         // min: 0.5, max: 1    ok
+Map.addLayer(kaolinite.addBands(calcite).addBands(quartz).clip(bbox), kcqVisParam, 'kao+cal+qua', false);
+*/
+
+/*
+Export to Assets
+*/
+var litho_ind = kaolinite
+                //.addBands(alunite)
+                .addBands(calcite)
+                .addBands(quartz)
+                .addBands(carbonate)
+                .addBands(mafic)
+                ;
+
+// Export covariates covering entire country as asset
+// Set the export "scale" and "crs" parameters.
+Export.image.toAsset({
+  image: litho_ind,
+  description: 'litho_ind',
+  // assetId: 'users/Namibia_map/generated_covariates/litho_ind_epsg_4326_buff_2km_res_90m',
+  // assetId: 'users/' + user_ID + '/OPTIONAL_CUSTOM_FOLDER/litho_ind_epsg_4326_buff_2km_res_90m',
+  assetId: 'users/' + user_ID + '/litho_ind_epsg_4326_buff_2km_res_90m',
+  region: bbox,
+  // scale: 3000, // with atmospheric dos correction (less than this was difficult)
+  // scale: 90,      // with raw images
+  scale: 5000,      // Temporary coarse resolution to optimize storage space, set desired resolution
+  crs: 'EPSG:4326',
+  maxPixels: 1e13
+});

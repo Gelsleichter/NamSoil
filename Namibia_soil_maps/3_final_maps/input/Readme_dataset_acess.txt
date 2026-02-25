@@ -1,0 +1,3 @@
+This folder received all predicted .tiff files from GEE, of the 16 soil properties across 3 depths (0-30, 30-60 and 60-100 cm) such as: mean, and percentiles 0.05; 0.95 e PI90 (range).
+
+The complete set of data is availble in https//:doi.zenodo......

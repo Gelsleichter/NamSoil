@@ -1,0 +1,47 @@
+exports.bands_sel = [
+  "dem",
+  "tpi",
+  "blue_w",
+  "green_w",
+  "red_w",
+  "nir_w",
+  "swir1_w",
+  "swir2_w",
+  "savi_w",
+  "msavi_w",
+  "evi_w",
+  "blue_s",
+  "green_s",
+  "red_s",
+  "nir_s",
+  "swir1_s",
+  "swir2_s",
+  "savi_s",
+  "msavi_s",
+  "evi_s",
+  "flow_lend_d",
+  "pet",
+  "arid_ind",
+  "namsoil_13",
+  "aspp",
+  "aez",
+  "veg_types",
+  "cc",
+  "calcite",
+  "prec_wc2",
+  "tavg_wc2",
+  "geology_a",
+  "carb_diff",
+  "ferr_diff",
+  "iron",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 17,
+  nodesize: 6,
+  sampsize: 0.41
+  //max_Nodes: 120,
+  //seed_: 0
+};

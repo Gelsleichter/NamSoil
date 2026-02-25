@@ -1,0 +1,28 @@
+exports.bands_sel = [
+  "dem",
+  "chili",
+  "blue_w",
+  "ndvi_w",
+  "savi_w",
+  "msavi_w",
+  "evi_w",
+  "kndvi_w",
+  "msavi_s",
+  "flow_lend_d",
+  "arid_ind",
+  "aspp",
+  "aez",
+  "veg_types",
+  "cc",
+  "prec_wc2",
+  "tavg_wc2"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 1,
+  nodesize: 2,
+  sampsize: 0.82
+  //max_Nodes: 120,
+  //seed_: 0
+};

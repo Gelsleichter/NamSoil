@@ -1,0 +1,25 @@
+exports.bands_sel = [
+  "dem",
+  "nir_w",
+  "swir1_w",
+  "swir2_w",
+  "green_s",
+  "nir_s",
+  "swir1_s",
+  "ndvi_s",
+  "savi_s",
+  "msavi_s",
+  "evi_s",
+  "kndvi_s",
+  "mafic",
+  "clay_diff"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 3,
+  nodesize: 114,
+  sampsize: 0.78
+  //max_Nodes: 120,
+  //seed_: 0
+};

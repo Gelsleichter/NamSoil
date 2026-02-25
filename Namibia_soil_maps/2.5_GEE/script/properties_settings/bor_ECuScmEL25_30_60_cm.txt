@@ -1,0 +1,20 @@
+exports.bands_sel = [
+  "dem",
+  "landcover",
+  "blue_w",
+  "green_w",
+  "red_w",
+  "blue_s",
+  "green_s",
+  "tavg_wc2",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 1,
+  nodesize: 46,
+  sampsize: 0.71
+  //max_Nodes: 120,
+  //seed_: 0
+};

@@ -1,0 +1,15 @@
+exports.bands_sel = [
+  "dem",
+  "chili",
+  "aspp",
+  "tavg_wc2"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 1,
+  nodesize: 5,
+  sampsize: 0.41
+  //max_Nodes: 120,
+  //seed_: 0
+};

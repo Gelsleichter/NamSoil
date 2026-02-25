@@ -1,0 +1,23 @@
+exports.bands_sel = [
+  "dem",
+  "evi_w",
+  "ndvi_s",
+  "savi_s",
+  "msavi_s",
+  "evi_s",
+  "kndvi_s",
+  "arid_ind",
+  "VerticalCurvature",
+  "prec_wc2",
+  "tavg_wc2",
+  "geology_a"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 6,
+  nodesize: 18,
+  sampsize: 0.88
+  //max_Nodes: 120,
+  //seed_: 0
+};

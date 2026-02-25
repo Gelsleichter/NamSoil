@@ -1,0 +1,45 @@
+exports.bands_sel = [
+  "dem",
+  "chili",
+  "topo_diver",
+  "hand",
+  "blue_w",
+  "ndvi_w",
+  "savi_w",
+  "msavi_w",
+  "evi_w",
+  "kndvi_w",
+  "nir_s",
+  "ndvi_s",
+  "savi_s",
+  "msavi_s",
+  "evi_s",
+  "kndvi_s",
+  "flow_lend_d",
+  "pet",
+  "arid_ind",
+  "landform_iwa",
+  "namsoil_13",
+  "aspp",
+  "aez",
+  "veg_types",
+  "aez_n",
+  "cc",
+  "Slope",
+  "calcite",
+  "mafic",
+  "prec_wc2",
+  "tavg_wc2",
+  "geology_a",
+  "clay_diff",
+  "rock_out"
+];
+
+exports.rfParams = {
+  ntree: 150,
+  mtry: 8,
+  nodesize: 2,
+  sampsize: 0.65
+  //max_Nodes: 120,
+  //seed_: 0
+};
